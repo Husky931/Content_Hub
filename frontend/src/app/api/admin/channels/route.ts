@@ -29,11 +29,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate slug from name
-    const slug = name
+    // Generate slug from name (use nameCn fallback for Chinese-only names)
+    let slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
+
+    // If name is non-ASCII only (e.g. Chinese), use a transliterated fallback
+    if (!slug) {
+      slug = `ch-${Date.now().toString(36)}`;
+    }
 
     // Check slug uniqueness
     const [existing] = await db
