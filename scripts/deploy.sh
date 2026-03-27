@@ -169,20 +169,24 @@ echo "[5/6] Database setup..."
 
 SEED_MARKER=".seed_completed"
 
-# Always push schema (idempotent — only applies new changes)
+# Wait for Next.js to be reachable
 echo "  Waiting for Next.js to start..."
 for i in $(seq 1 30); do
-  if docker compose exec -T nextjs node -e "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)throw 1})" 2>/dev/null; then
+  if docker compose exec -T nextjs node -e "fetch('http://localhost:3000/api/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))" 2>/dev/null; then
     break
   fi
   sleep 2
 done
 
-if $MIGRATE || [ ! -f "$SEED_MARKER" ]; then
-  echo "  Pushing schema..."
-  docker compose exec -T nextjs npx drizzle-kit push
-  info "Schema up to date"
-fi
+# Always run migrations (idempotent — only applies pending changes)
+echo "  Running database migrations..."
+docker compose exec -T nextjs npx drizzle-kit migrate
+info "Migrations applied"
+
+# Push schema to catch any drift (idempotent)
+echo "  Pushing schema..."
+docker compose exec -T nextjs npx drizzle-kit push --force
+info "Schema up to date"
 
 # Seed only on first deploy — never again
 if [ ! -f "$SEED_MARKER" ]; then
