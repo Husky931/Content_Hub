@@ -57,7 +57,7 @@ async function seed() {
 function generatePassword(): string {
   const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
   const bytes = require("crypto").randomBytes(20);
-  return Array.from(bytes).map((b: number) => chars[b % chars.length]).join("");
+  return Array.from(bytes as Uint8Array).map((b) => chars[b % chars.length]).join("");
 }
 
 seed().catch((err) => {
