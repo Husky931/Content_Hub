@@ -1,3 +1,7 @@
+upstream portainer_upstream {
+    server portainer:9000;
+}
+
 upstream nextjs_upstream {
     server nextjs:3000;
 }
@@ -8,6 +12,62 @@ upstream ws_upstream {
 
 upstream task_creator_upstream {
     server task-creator:3003;
+}
+
+# ── Default catch-all: reject unknown hosts (direct IP, random domains) ──
+server {
+    listen 80 default_server;
+    server_name _;
+    return 301 https://${DOMAIN}$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    return 301 https://${DOMAIN}$request_uri;
+}
+
+# ── Portainer HTTP → HTTPS ──
+server {
+    listen 80;
+    server_name portainer.${DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ── Portainer HTTPS ──
+server {
+    listen 443 ssl http2;
+    server_name portainer.${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/portainer.${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/portainer.${DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=63072000" always;
+
+    location / {
+        proxy_pass http://portainer_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 
 # ── Redirect www → root domain ──
