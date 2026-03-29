@@ -91,11 +91,26 @@ describe("PATCH /api/appeals/[id]", () => {
     expect(json.error).toMatch(/already resolved/i);
   });
 
+  it("returns 403 when arbitrator is the original reviewer", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "admin" });
+    // appeal lookup
+    mockSelect([{ id: "appeal-1", status: "pending", attemptId: "a1", userId: "u1" }]);
+    // reviewer check — same user as arbitrator
+    mockSelect([{ reviewerId: "mod-1" }]);
+
+    const res = await PATCH(makeReq({ status: "granted" }), { params: paramsPromise });
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toMatch(/original reviewer/i);
+  });
+
   it("returns 200 when granting an appeal", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "admin" });
 
     // appeal lookup
     mockSelect([{ id: "appeal-1", status: "pending", attemptId: "a1", userId: "u1" }]);
+    // reviewer check — different user, so allowed
+    mockSelect([{ reviewerId: "other-mod" }]);
     // update appeal
     mockUpdate();
     // attempt lookup
@@ -131,6 +146,8 @@ describe("PATCH /api/appeals/[id]", () => {
 
     // appeal lookup
     mockSelect([{ id: "appeal-1", status: "pending", attemptId: "a1", userId: "u1" }]);
+    // reviewer check — different user
+    mockSelect([{ reviewerId: "other-mod" }]);
     // update appeal
     mockUpdate();
     // attempt lookup

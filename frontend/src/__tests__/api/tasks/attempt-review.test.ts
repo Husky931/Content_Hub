@@ -2,9 +2,18 @@ import { NextRequest } from "next/server";
 import { PATCH, PUT, DELETE } from "@/app/api/tasks/[taskId]/attempts/[attemptId]/route";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
-jest.mock("@/db", () => ({
-  db: { select: jest.fn(), update: jest.fn(), insert: jest.fn(), delete: jest.fn() },
-}));
+jest.mock("@/db", () => {
+  const mockDb = {
+    select: jest.fn(),
+    update: jest.fn(),
+    insert: jest.fn(),
+    delete: jest.fn(),
+    transaction: jest.fn(),
+  };
+  // transaction mock: calls the callback with the same db object
+  mockDb.transaction.mockImplementation(async (cb: (tx: typeof mockDb) => Promise<unknown>) => cb(mockDb));
+  return { db: mockDb };
+});
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
@@ -96,7 +105,11 @@ const activeTask = {
   reviewClaimedById: "mod-1",
 };
 
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  jest.resetAllMocks();
+  // Re-apply transaction mock after reset (resetAllMocks clears implementations)
+  (db as any).transaction.mockImplementation(async (cb: (tx: typeof db) => Promise<unknown>) => cb(db));
+});
 
 // ── PATCH (Review) Tests ───────────────────────────────────────────────────
 
@@ -170,25 +183,19 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
 
   it("successfully approves attempt (with auto-reject, ledger, notifications)", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "admin" });
-    mockSelect([submittedAttempt]); // attempt
-    mockSelect([activeTask]); // task
-    // mod assignment not checked for admin
-    mockUpdate([{ ...submittedAttempt, status: "approved" }]); // update attempt
-    // Get submitter info
-    mockSelect([{ username: "creator1", displayName: "Creator One", email: "c1@test.com" }]);
-    // Get reviewer info (for webhook enrichment)
-    mockSelect([{ username: "mod_admin" }]);
-    // Get channel slug
-    mockSelect([{ slug: "voiceover-basic" }]);
-    // Other submitted attempts
-    mockSelect([]);
-    // Update task to approved
-    mockUpdate([]);
-    // Create ledger entry
-    mockInsert([]);
-    // Post system message
+    mockSelect([submittedAttempt]); // attempt lookup (pre-check)
+    mockSelect([activeTask]); // task lookup
+    // --- inside transaction ---
+    mockUpdate([{ ...submittedAttempt, status: "approved" }]); // optimistic lock update attempt
+    mockSelect([]); // other submitted attempts
+    mockUpdate([]); // update task to approved
+    mockInsert([]); // create ledger entry
+    // --- after transaction ---
+    mockSelect([{ username: "creator1", displayName: "Creator One", email: "c1@test.com" }]); // submitter
+    mockSelect([{ username: "mod_admin" }]); // reviewer
+    mockSelect([{ slug: "voiceover-basic" }]); // channel
+    // Post system message + notify creator
     mockInsert([{ id: "msg-1", createdAt: new Date() }]);
-    // Notify creator
     mockInsert([]);
 
     const res = await PATCH(
@@ -200,11 +207,29 @@ describe("PATCH /api/tasks/[taskId]/attempts/[attemptId]", () => {
     expect(json.attempt.status).toBe("approved");
   });
 
+  it("returns 409 when attempt already reviewed (optimistic lock)", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "admin" });
+    mockSelect([submittedAttempt]); // attempt lookup (pre-check)
+    mockSelect([activeTask]); // task lookup
+    // --- inside transaction: optimistic lock returns no rows ---
+    mockUpdate([]); // no rows matched WHERE status='submitted'
+
+    const res = await PATCH(
+      makePatchReq({ status: "approved" }),
+      { params: paramsPromise }
+    );
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error).toMatch(/already been reviewed/i);
+  });
+
   it("successfully rejects attempt with reason", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "mod-1", role: "admin" });
-    mockSelect([submittedAttempt]); // attempt
-    mockSelect([activeTask]); // task
-    mockUpdate([{ ...submittedAttempt, status: "rejected" }]); // update attempt
+    mockSelect([submittedAttempt]); // attempt lookup (pre-check)
+    mockSelect([activeTask]); // task lookup
+    // --- inside transaction ---
+    mockUpdate([{ ...submittedAttempt, status: "rejected" }]); // optimistic lock update attempt
+    // --- after transaction ---
     mockSelect([{ username: "creator1", displayName: "Creator One", email: "c1@test.com" }]); // submitter
     mockSelect([{ username: "mod_admin" }]); // reviewer
     mockSelect([{ slug: "voiceover-basic" }]); // channel

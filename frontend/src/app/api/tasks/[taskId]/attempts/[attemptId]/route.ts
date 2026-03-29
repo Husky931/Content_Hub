@@ -34,7 +34,7 @@ export async function PATCH(
 
     const { taskId, attemptId } = await params;
     const body = await req.json();
-    const { status: newStatus, reviewNote, rejectionReason } = body;
+    const { status: newStatus, reviewNote, rejectionReason, checklistResults } = body;
 
     if (!newStatus || !["approved", "rejected"].includes(newStatus)) {
       return NextResponse.json(
@@ -117,18 +117,123 @@ export async function PATCH(
       }
     }
 
-    // Update the attempt
-    const [updatedAttempt] = await db
-      .update(attempts)
-      .set({
-        status: newStatus,
-        reviewerId: auth.userId,
-        reviewNote: reviewNote || null,
-        rejectionReason: newStatus === "rejected" ? rejectionReason || null : null,
-        updatedAt: new Date(),
-      })
-      .where(eq(attempts.id, attemptId))
-      .returning();
+    // Server-side checklist enforcement: if the task has a checklist, approval requires all items to pass
+    const taskChecklist = task.checklist as { label: string }[] | null;
+    if (newStatus === "approved" && taskChecklist && taskChecklist.length > 0) {
+      if (!Array.isArray(checklistResults) || checklistResults.length !== taskChecklist.length) {
+        return NextResponse.json(
+          { error: "Checklist results are required for approval — all items must be checked" },
+          { status: 400 }
+        );
+      }
+      const allPassed = checklistResults.every((v: unknown) => v === true);
+      if (!allPassed) {
+        return NextResponse.json(
+          { error: "Cannot approve — not all checklist items passed" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // --- Critical section: use a transaction with optimistic locking to prevent double-payment ---
+    const txResult = await db.transaction(async (tx) => {
+      // Optimistic lock: only update if status is still "submitted"
+      const [updatedAttempt] = await tx
+        .update(attempts)
+        .set({
+          status: newStatus,
+          reviewerId: auth.userId,
+          reviewNote: reviewNote || null,
+          rejectionReason: newStatus === "rejected" ? rejectionReason || null : null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(attempts.id, attemptId), eq(attempts.status, "submitted")))
+        .returning();
+
+      // If no rows updated, another reviewer already processed this attempt
+      if (!updatedAttempt) {
+        return { conflict: true } as const;
+      }
+
+      let otherSubmitted: { id: string; userId: string }[] = [];
+
+      if (newStatus === "approved") {
+        // Find other submitted attempts before auto-rejecting them
+        otherSubmitted = await tx
+          .select({ id: attempts.id, userId: attempts.userId })
+          .from(attempts)
+          .where(
+            and(
+              eq(attempts.taskId, taskId),
+              ne(attempts.id, attemptId),
+              eq(attempts.status, "submitted")
+            )
+          );
+
+        // Auto-reject all other submitted attempts for this task
+        if (otherSubmitted.length > 0) {
+          await tx
+            .update(attempts)
+            .set({
+              status: "rejected",
+              rejectionReason: "Another attempt was approved",
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(attempts.taskId, taskId),
+                ne(attempts.id, attemptId),
+                eq(attempts.status, "submitted")
+              )
+            );
+
+          // Notify each auto-rejected user
+          await tx.insert(notifications).values(
+            otherSubmitted.map((a) => ({
+              userId: a.userId,
+              type: "task_rejected",
+              title: "Submission not selected",
+              body: `Your submission for "${task.title}" was not selected — another attempt was approved.`,
+              data: { taskId, attemptId: a.id },
+            }))
+          );
+        }
+
+        // Move task to approved + release review claim
+        await tx
+          .update(tasks)
+          .set({
+            status: "approved",
+            reviewClaimedById: null,
+            reviewClaimedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(tasks.id, taskId));
+
+        // Create ledger entry for the creator (inside transaction to prevent double-payment)
+        await tx.insert(ledgerEntries).values({
+          userId: attempt.userId,
+          taskId,
+          attemptId,
+          type: "task_earning",
+          amountUsd: task.bountyUsd,
+          amountRmb: task.bountyRmb,
+          description: `Earning for task: ${task.title}`,
+        });
+      }
+
+      return { conflict: false, updatedAttempt, otherSubmitted } as const;
+    });
+
+    // If another reviewer already processed this attempt, return 409 Conflict
+    if (txResult.conflict) {
+      return NextResponse.json(
+        { error: "This attempt has already been reviewed" },
+        { status: 409 }
+      );
+    }
+
+    const { updatedAttempt, otherSubmitted } = txResult;
 
     // Get submitter info
     const [submitter] = await db
@@ -154,68 +259,6 @@ export async function PATCH(
     const channelSlug = channel?.slug;
 
     if (newStatus === "approved") {
-      // Find other submitted attempts before auto-rejecting them
-      const otherSubmitted = await db
-        .select({ id: attempts.id, userId: attempts.userId })
-        .from(attempts)
-        .where(
-          and(
-            eq(attempts.taskId, taskId),
-            ne(attempts.id, attemptId),
-            eq(attempts.status, "submitted")
-          )
-        );
-
-      // Auto-reject all other submitted attempts for this task
-      if (otherSubmitted.length > 0) {
-        await db
-          .update(attempts)
-          .set({
-            status: "rejected",
-            rejectionReason: "Another attempt was approved",
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(attempts.taskId, taskId),
-              ne(attempts.id, attemptId),
-              eq(attempts.status, "submitted")
-            )
-          );
-
-        // Notify each auto-rejected user
-        await db.insert(notifications).values(
-          otherSubmitted.map((a) => ({
-            userId: a.userId,
-            type: "task_rejected",
-            title: "Submission not selected",
-            body: `Your submission for "${task.title}" was not selected — another attempt was approved.`,
-            data: { taskId, attemptId: a.id, channelSlug },
-          }))
-        );
-      }
-
-      // Move task to approved + release review claim
-      await db
-        .update(tasks)
-        .set({
-          status: "approved",
-          reviewClaimedById: null,
-          reviewClaimedAt: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(tasks.id, taskId));
-
-      // Create ledger entry for the creator
-      await db.insert(ledgerEntries).values({
-        userId: attempt.userId,
-        taskId,
-        attemptId,
-        type: "task_earning",
-        amountUsd: task.bountyUsd,
-        amountRmb: task.bountyRmb,
-        description: `Earning for task: ${task.title}`,
-      });
 
       // Post system message
       const approveContent = `${displayName}'s submission for "${task.title}" was approved! +$${task.bountyUsd || "0"} / +¥${task.bountyRmb || "0"}`;

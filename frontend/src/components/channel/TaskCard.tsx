@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import type { DeliverableSlot } from "@/types/deliverable-slot";
 import { slotTypeLabel, slotTypeIcon, isUploadType, SLOT_TYPE_BADGE } from "@/types/deliverable-slot";
 import { useTranslations } from "next-intl";
+import { validateDeliverablesError } from "@/lib/validate-deliverables";
 
 /** Per-slot deliverable data submitted by creator */
 export interface SlotDeliverable {
@@ -225,6 +226,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
 
   const validateSlotDeliverables = (): string | null => {
     if (!hasSlots) return null;
+    // Check required slots have content
     for (const slot of task.deliverableSlots!) {
       if (slot.required === false) continue; // skip optional slots
       if (isUploadType(slot.type) && slot.type !== "upload-text") {
@@ -233,6 +235,12 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       if (slot.type === "textbox") {
         if (!slotTexts[slot.id]?.trim()) return t("slotTextRequired", { slotName: slot.title || "Textbox" });
       }
+    }
+    // Run automated checks (file size, extensions, text length, regex, selections, rating)
+    const builtSlots = buildSlotDeliverables();
+    if (builtSlots) {
+      const checkError = validateDeliverablesError(task.deliverableSlots!, builtSlots);
+      if (checkError) return checkError;
     }
     return null;
   };

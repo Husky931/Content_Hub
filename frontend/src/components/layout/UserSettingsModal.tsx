@@ -2199,34 +2199,36 @@ function AdminChannelsSection() {
   const handleSaveEdit = async (ch: ChannelItem) => {
     setSaving(true); setEditError("");
 
-    // Save channel details
-    const res = await fetch(`/api/admin/channels/${ch.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: editName,
-        description: editDescription || null,
-        requiredTagId: ch.type === "task" ? (editRequiredTagId || null) : undefined,
+    // Save channel details and mod assignments in parallel — neither should block the other
+    const [res, modRes] = await Promise.all([
+      fetch(`/api/admin/channels/${ch.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          description: editDescription || null,
+          requiredTagId: ch.type === "task" ? (editRequiredTagId || null) : undefined,
+        }),
       }),
-    });
+      fetch(`/api/admin/channels/${ch.id}/mods`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modUserIds: editMods }),
+      }),
+    ]);
 
+    const errors: string[] = [];
     if (!res.ok) {
       const data = await res.json();
-      setEditError(data.error || "Failed to update channel");
-      setSaving(false);
-      return;
+      errors.push(data.error || "Failed to update channel");
     }
-
-    // Save mod assignments
-    const modRes = await fetch(`/api/admin/channels/${ch.id}/mods`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ modUserIds: editMods }),
-    });
-
     if (!modRes.ok) {
       const data = await modRes.json();
-      setEditError(data.error || "Failed to update mods");
+      errors.push(data.error || "Failed to update mods");
+    }
+
+    if (errors.length > 0) {
+      setEditError(errors.join("; "));
       setSaving(false);
       return;
     }

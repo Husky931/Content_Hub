@@ -122,13 +122,11 @@ describe("PATCH /api/admin/channels/[channelId]", () => {
     expect(res.status).toBe(409);
   });
 
-  it("returns 400 when no fields to update", async () => {
+  it("returns 200 when no fields to update (no-op)", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "a1", role: "admin" });
     mockSelect([{ id: "ch-1", isFixed: false, type: "discussion" }]);
     const res = await PATCH(makeReq("PATCH", {}), params);
-    expect(res.status).toBe(400);
-    const json = await res.json();
-    expect(json.error).toMatch(/no fields/i);
+    expect(res.status).toBe(200);
   });
 
   it("returns 200 on successful update", async () => {

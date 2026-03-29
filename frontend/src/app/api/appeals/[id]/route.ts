@@ -68,6 +68,21 @@ export async function PATCH(
       );
     }
 
+    // Get the attempt to check the original reviewer
+    const [attemptForReviewerCheck] = await db
+      .select({ reviewerId: attempts.reviewerId })
+      .from(attempts)
+      .where(eq(attempts.id, appeal.attemptId))
+      .limit(1);
+
+    // The original reviewer who rejected cannot be the appeal arbitrator
+    if (attemptForReviewerCheck?.reviewerId === auth.userId) {
+      return NextResponse.json(
+        { error: "The original reviewer cannot arbitrate this appeal" },
+        { status: 403 }
+      );
+    }
+
     // Update the appeal
     await db
       .update(appeals)

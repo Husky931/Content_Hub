@@ -140,10 +140,8 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: "No fields to update" },
-        { status: 400 }
-      );
+      // Nothing to change — return current channel as-is (not an error)
+      return NextResponse.json({ channel });
     }
 
     const [updated] = await db

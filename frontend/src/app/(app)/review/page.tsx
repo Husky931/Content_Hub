@@ -305,6 +305,9 @@ function ReviewContent() {
             status,
             reviewNote,
             rejectionReason: status === "rejected" ? rejectionReason : undefined,
+            checklistResults: status === "approved" && selectedTask.checklist?.length
+              ? selectedTask.checklist.map((_, i) => checklistState[i] !== false)
+              : undefined,
           }),
         }
       );

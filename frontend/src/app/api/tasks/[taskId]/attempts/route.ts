@@ -13,6 +13,9 @@ import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, sql } from "drizzle-orm";
 import { publishSystemMessage, publishTaskUpdate, publishNotification } from "@/lib/ws-publish";
 import { webhookAttemptSubmitted } from "@/lib/backend-webhook";
+import { validateDeliverablesError } from "@/lib/validate-deliverables";
+import { validateDeliverablesAsync } from "@/lib/validate-deliverables-server";
+import type { DeliverableSlot } from "@/types/deliverable-slot";
 
 // POST /api/tasks/[taskId]/attempts — submit an attempt (creator)
 export async function POST(
@@ -48,6 +51,22 @@ export async function POST(
     }
 
     // Locked tasks: only the locked creator can submit (revision attempt)
+    // Also enforce lock expiry — if the lock has expired, auto-unlock the task
+    if (task.status === "locked" && task.lockExpiresAt && new Date(task.lockExpiresAt) < new Date()) {
+      await db
+        .update(tasks)
+        .set({
+          status: "active",
+          lockedById: null,
+          lockExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(tasks.id, taskId));
+      task.status = "active";
+      task.lockedById = null;
+      task.lockExpiresAt = null;
+    }
+
     const isLockedForUser =
       task.status === "locked" && task.lockedById === auth.userId;
 
@@ -100,6 +119,33 @@ export async function POST(
         { error: "You are blocked from this task" },
         { status: 403 }
       );
+    }
+
+    // Validate deliverables against slot definitions
+    const taskSlots = task.deliverableSlots as DeliverableSlot[] | null;
+    if (taskSlots && taskSlots.length > 0 && deliverables?.slots) {
+      // Phase 1: metadata checks (file size, extensions, text, selections, rating)
+      const validationError = validateDeliverablesError(taskSlots, deliverables.slots);
+      if (validationError) {
+        return NextResponse.json(
+          { error: validationError },
+          { status: 400 }
+        );
+      }
+
+      // Phase 2+3: file-content checks (TSV columns, SRT parsing, image/video/audio probing)
+      try {
+        const asyncResults = await validateDeliverablesAsync(taskSlots, deliverables.slots);
+        const asyncFailure = asyncResults.find((r) => !r.passed);
+        if (asyncFailure) {
+          return NextResponse.json(
+            { error: `${asyncFailure.slotTitle}: ${asyncFailure.detail || asyncFailure.check}` },
+            { status: 400 }
+          );
+        }
+      } catch {
+        // If file-content validation fails to run (e.g. file unreachable), don't block submission
+      }
     }
 
     // Create the attempt

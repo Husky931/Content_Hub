@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
  *   deadline?: string (ISO),
  *   externalId?: string,          // backend's task ID for correlation
  *   checklist?: { label: string }[],   // review checklist items
+ *   selfChecklist?: { label: string }[],  // creator-facing guidance items
  *   attachments?: { name: string, url: string, type: string, size: number }[],  // reference files
+ *   deliverableSlots?: DeliverableSlot[],  // deliverable slot definitions
  * }
  */
 export async function POST(req: NextRequest) {
@@ -94,7 +96,9 @@ export async function POST(req: NextRequest) {
       deadline,
       externalId,
       checklist,
+      selfChecklist,
       attachments,
+      deliverableSlots,
     } = body;
 
     // Validate required fields
@@ -160,7 +164,9 @@ export async function POST(req: NextRequest) {
         source: "backend",
         externalId: externalId || null,
         checklist: Array.isArray(checklist) ? checklist : null,
+        selfChecklist: Array.isArray(selfChecklist) ? selfChecklist : null,
         attachments: Array.isArray(attachments) ? attachments : null,
+        deliverableSlots: Array.isArray(deliverableSlots) ? deliverableSlots : null,
       })
       .returning();
 
