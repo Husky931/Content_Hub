@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const auth = await getAuthFromCookies();
-    if (!auth || !["admin", "supermod"].includes(auth.role)) {
+    if (!auth || !["admin", "supermod", "mod"].includes(auth.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -25,6 +25,18 @@ export async function GET(
 
     if (!channel) {
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
+    }
+
+    // Regular mods can only view mods for channels they are assigned to
+    if (auth.role === "mod") {
+      const [assignment] = await db
+        .select({ channelId: channelMods.channelId })
+        .from(channelMods)
+        .where(and(eq(channelMods.channelId, channelId), eq(channelMods.userId, auth.userId)))
+        .limit(1);
+      if (!assignment) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const mods = await db

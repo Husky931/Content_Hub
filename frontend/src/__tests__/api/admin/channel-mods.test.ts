@@ -80,6 +80,29 @@ describe("GET /api/admin/channels/[channelId]/mods", () => {
     expect(json.mods).toHaveLength(1);
     expect(json.mods[0].username).toBe("mod1");
   });
+
+  it("returns 200 when mod is assigned to the channel", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "m1", role: "mod" });
+    mockSelect([{ id: "ch-1" }]); // channel exists
+    mockSelect([{ channelId: "ch-1" }]); // mod assignment exists
+    const modList = [
+      { id: "m1", username: "mod1", displayName: "Mod 1", role: "mod", assignedAt: "2024-01-01" },
+      { id: "m2", username: "mod2", displayName: "Mod 2", role: "mod", assignedAt: "2024-01-01" },
+    ];
+    mockSelect(modList); // mods
+    const res = await GET(makeReq("GET"), params);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.mods).toHaveLength(2);
+  });
+
+  it("returns 403 when mod is NOT assigned to the channel", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "m1", role: "mod" });
+    mockSelect([{ id: "ch-1" }]); // channel exists
+    mockSelect([]); // mod assignment NOT found
+    const res = await GET(makeReq("GET"), params);
+    expect(res.status).toBe(403);
+  });
 });
 
 // ── PUT Tests ──────────────────────────────────────────────────────────────
