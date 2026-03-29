@@ -70,10 +70,11 @@ export async function POST(req: NextRequest) {
 async function handleWelcome(userId: string) {
   // Get user info for welcome message
   const [user] = await db
-    .select({ username: users.username, displayName: users.displayName })
+    .select({ username: users.username, displayName: users.displayName, locale: users.locale })
     .from(users)
     .where(eq(users.id, userId));
   const userName = user?.displayName || user?.username || "learner";
+  const userLocale = user?.locale || "en";
 
   // Get all published lessons
   const publishedLessons = await db
@@ -168,7 +169,8 @@ async function handleWelcome(userId: string) {
     welcomeMessage = await generateWelcome(
       userName,
       completedNames,
-      availableNames
+      availableNames,
+      userLocale
     );
   } catch {
     welcomeMessage = `Welcome, ${userName}! Ready to start your training?`;
@@ -396,8 +398,15 @@ async function handleChatOpen(
 
   const prompt = prompts[promptIndex];
 
+  // Fetch user locale for localized LLM responses
+  const [chatOpenUser] = await db
+    .select({ locale: users.locale })
+    .from(users)
+    .where(eq(users.id, auth.userId));
+  const chatOpenLocale = chatOpenUser?.locale || "en";
+
   try {
-    const message = await openQuestion(prompt.content, previousResult);
+    const message = await openQuestion(prompt.content, previousResult, chatOpenLocale);
 
     // Append to conversation history
     const history = [...(progress.conversationHistory || [])];
@@ -492,11 +501,19 @@ async function handleChatReply(
   // Add the student message
   currentConversation.push({ role: "student", content: message });
 
+  // Fetch user locale for localized LLM responses
+  const [chatReplyUser] = await db
+    .select({ locale: users.locale })
+    .from(users)
+    .where(eq(users.id, auth.userId));
+  const chatReplyLocale = chatReplyUser?.locale || "en";
+
   try {
     const result = await evaluateReply(
       currentPrompt.content,
       currentConversation,
-      progress.attempts
+      progress.attempts,
+      chatReplyLocale
     );
 
     // Update history

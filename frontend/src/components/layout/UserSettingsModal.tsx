@@ -17,6 +17,7 @@ import { AdminUploadReviewSection } from "@/components/admin/AdminUploadReviewSe
 type Section =
   | "my-account"
   | "profile"
+  | "account-settings"
   | "admin-overview"
   | "admin-users"
   | "admin-invites"
@@ -33,6 +34,7 @@ type Section =
 
 const ROLE_BADGE: Record<string, string> = {
   creator: "bg-blue-500/20 text-blue-300",
+  supercreator: "bg-purple-500/20 text-purple-300",
   mod: "bg-green-500/20 text-green-300",
   supermod: "bg-indigo-500/20 text-indigo-300",
   admin: "bg-red-500/20 text-red-300",
@@ -125,6 +127,210 @@ function MyAccountSection() {
             ) : (
               <span className="text-sm text-discord-text-muted">{t("noTags")}</span>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Account Settings ─────────────────────────────────────────────────────────
+
+function AccountSettingsSection() {
+  const { user } = useAuth();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  if (!user) return null;
+
+  // Mask email: j***e@example.com
+  const maskEmail = (email: string) => {
+    const [local, domain] = email.split("@");
+    if (local.length <= 2) return `${local[0]}***@${domain}`;
+    return `${local[0]}***${local[local.length - 1]}@${domain}`;
+  };
+
+  // Mask phone: +1 •••• •••• 4567
+  const maskPhone = (phone: string) => {
+    if (phone.length < 4) return phone;
+    const last4 = phone.slice(-4);
+    return `${phone.slice(0, 3)} ${"•".repeat(4)} ${"•".repeat(4)} ${last4}`;
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (newPassword !== confirmPassword) {
+      setMessage({ type: "error", text: t("passwordsDoNotMatch") });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setMessage({ type: "error", text: t("passwordRequirements") });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({ type: "error", text: data.error || "Failed" });
+      } else {
+        setMessage({ type: "success", text: t("passwordUpdated") });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      }
+    } catch {
+      setMessage({ type: "error", text: tc("somethingWentWrong") });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const EyeButton = ({ show, onClick }: { show: boolean; onClick: () => void }) => (
+    <button type="button" onClick={onClick} className="absolute right-3 top-1/2 -translate-y-1/2 text-discord-text-muted hover:text-discord-text transition">
+      {show ? (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+      ) : (
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+      )}
+    </button>
+  );
+
+  const inputCls = "w-full p-3 bg-discord-bg-dark border border-discord-border rounded-lg text-discord-text text-sm focus:outline-none focus:border-discord-accent";
+
+  return (
+    <div className="max-w-4xl">
+      <SectionTitle>{t("accountSettings")}</SectionTitle>
+      <p className="text-sm text-discord-text-muted mb-8">{t("accountSettingsDesc")}</p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ── Change Password ── */}
+        <div>
+          <h3 className="text-sm font-bold text-discord-text flex items-center gap-2 mb-4">
+            <svg className="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+            {t("changePassword")}
+          </h3>
+          <form onSubmit={handleChangePassword} className="bg-discord-bg-dark rounded-xl border border-discord-border p-5 space-y-4">
+            {message && (
+              <div className={`p-3 rounded-lg text-sm ${message.type === "success" ? "bg-discord-green/10 border border-discord-green/30 text-discord-green" : "bg-discord-red/10 border border-discord-red/30 text-discord-red"}`}>
+                {message.text}
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-semibold text-discord-text-muted mb-1.5">{t("currentPassword")}</label>
+              <div className="relative">
+                <input
+                  type={showCurrent ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder={t("currentPassword")}
+                  className={inputCls + " pr-10"}
+                  required
+                />
+                <EyeButton show={showCurrent} onClick={() => setShowCurrent(!showCurrent)} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-discord-text-muted mb-1.5">{t("newPassword")}</label>
+              <div className="relative">
+                <input
+                  type={showNew ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t("newPassword")}
+                  className={inputCls + " pr-10"}
+                  minLength={8}
+                  required
+                />
+                <EyeButton show={showNew} onClick={() => setShowNew(!showNew)} />
+              </div>
+              <p className="text-xs text-discord-text-muted mt-1.5 flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${newPassword.length >= 8 ? "bg-discord-green" : "bg-discord-text-muted/40"}`} />
+                {t("passwordRequirements")}
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-discord-text-muted mb-1.5">{t("confirmNewPassword")}</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t("confirmNewPassword")}
+                className={inputCls}
+                minLength={8}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              <ButtonSpinner loading={saving}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                {t("updatePassword")}
+              </ButtonSpinner>
+            </button>
+          </form>
+        </div>
+
+        {/* ── Email Address ── */}
+        <div>
+          <h3 className="text-sm font-bold text-discord-text flex items-center gap-2 mb-4">
+            <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            {t("emailAddress")}
+          </h3>
+          <div className="bg-discord-bg-dark rounded-xl border border-discord-border p-5 space-y-4">
+            <div className="flex items-center justify-between bg-discord-bg rounded-lg px-4 py-3 border border-discord-border">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-discord-text-muted uppercase">{t("currentEmail")}</span>
+                <span className="text-sm text-discord-text font-medium">{maskEmail(user.email)}</span>
+              </div>
+              {user.status === "verified" && (
+                <span className="text-xs font-semibold bg-discord-green/20 text-discord-green px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  {t("verified")}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* ── Phone Number ── */}
+          <h3 className="text-sm font-bold text-discord-text flex items-center gap-2 mb-4 mt-8">
+            <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+            {t("phoneNumber")}
+          </h3>
+          <div className="bg-discord-bg-dark rounded-xl border border-discord-border p-5">
+            <div className="flex items-center justify-between bg-discord-bg rounded-lg px-4 py-3 border border-discord-border">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-discord-text-muted uppercase">{t("currentPhone")}</span>
+                <span className="text-sm text-discord-text font-medium">
+                  {user.email.endsWith("@phone.local")
+                    ? maskPhone(user.email.replace("@phone.local", ""))
+                    : t("noPhoneSet")}
+                </span>
+              </div>
+              {user.email.endsWith("@phone.local") && (
+                <span className="text-xs font-semibold bg-discord-green/20 text-discord-green px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  {t("verified")}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -525,6 +731,7 @@ function AdminUsersSection() {
             admin: "bg-red-500",
             supermod: "bg-indigo-500",
             mod: "bg-green-500",
+            supercreator: "bg-purple-500",
             creator: "bg-discord-accent",
           };
 
@@ -594,7 +801,7 @@ function AdminUsersSection() {
                     <div>
                       <label className="block text-xs font-semibold uppercase tracking-wider text-discord-text-muted mb-2">Change Role</label>
                       <div className="flex gap-2 flex-wrap">
-                        {(["creator", "mod", "supermod", "admin"] as const).map((role) => (
+                        {(["creator", "supercreator", "mod", "supermod", "admin"] as const).map((role) => (
                           <button
                             key={role}
                             onClick={() => patch(u.id, { userId: u.id, action: "changeRole", role })}
@@ -603,6 +810,7 @@ function AdminUsersSection() {
                               ? role === "admin" ? "bg-red-500/50 text-red-200"
                                 : role === "supermod" ? "bg-indigo-500/50 text-indigo-200"
                                   : role === "mod" ? "bg-green-500/50 text-green-200"
+                                    : role === "supercreator" ? "bg-purple-500/50 text-purple-200"
                                     : "bg-blue-500/50 text-blue-200"
                               : "bg-discord-bg hover:bg-discord-bg-hover text-discord-text-muted hover:text-discord-text border border-discord-border"
                               }`}
@@ -2090,8 +2298,10 @@ function AdminChannelsSection() {
 
   // Create form state
   const [name, setName] = useState("");
+  const [nameCn, setNameCn] = useState("");
   const [type, setType] = useState<"task" | "discussion">("task");
   const [description, setDescription] = useState("");
+  const [descriptionCn, setDescriptionCn] = useState("");
   const [requiredTagId, setRequiredTagId] = useState("");
   const [selectedMods, setSelectedMods] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
@@ -2102,7 +2312,9 @@ function AdminChannelsSection() {
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editNameCn, setEditNameCn] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editDescriptionCn, setEditDescriptionCn] = useState("");
   const [editRequiredTagId, setEditRequiredTagId] = useState("");
   const [editMods, setEditMods] = useState<string[]>([]);
   const [editModDropdown, setEditModDropdown] = useState("");
@@ -2156,7 +2368,9 @@ function AdminChannelsSection() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name, type,
+        nameCn: nameCn || undefined,
         description: description || undefined,
+        descriptionCn: descriptionCn || undefined,
         requiredTagId: type === "task" ? requiredTagId || undefined : undefined,
         modUserIds: selectedMods.length > 0 ? selectedMods : undefined,
       }),
@@ -2164,7 +2378,7 @@ function AdminChannelsSection() {
 
     if (res.ok) {
       setCreateSuccess(`Channel #${name} created!`);
-      setName(""); setDescription("");
+      setName(""); setNameCn(""); setDescription(""); setDescriptionCn("");
       setRequiredTagId(""); setSelectedMods([]);
       await fetchChannels();
       window.dispatchEvent(new Event("channels-updated"));
@@ -2178,7 +2392,9 @@ function AdminChannelsSection() {
   const startEdit = async (ch: ChannelItem) => {
     setEditingId(ch.id);
     setEditName(ch.name);
+    setEditNameCn(ch.nameCn || "");
     setEditDescription(ch.description || "");
+    setEditDescriptionCn(ch.descriptionCn || "");
     setEditRequiredTagId(ch.requiredTagId || "");
     setEditError("");
 
@@ -2206,7 +2422,9 @@ function AdminChannelsSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editName,
+          nameCn: editNameCn || null,
           description: editDescription || null,
+          descriptionCn: editDescriptionCn || null,
           requiredTagId: ch.type === "task" ? (editRequiredTagId || null) : undefined,
         }),
       }),
@@ -2340,9 +2558,15 @@ function AdminChannelsSection() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-discord-text-muted mb-1">Channel Name</label>
+                <label className="block text-xs font-medium text-discord-text-muted mb-1">Channel Name (EN)</label>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="#channel-name" className={inputCls} />
               </div>
+              <div>
+                <label className="block text-xs font-medium text-discord-text-muted mb-1">Channel Name (中文)</label>
+                <input value={nameCn} onChange={(e) => setNameCn(e.target.value)} placeholder="#频道名称" className={inputCls} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-discord-text-muted mb-1">Channel Type</label>
                 <select value={type} onChange={(e) => setType(e.target.value as "task" | "discussion")} className={inputCls}>
@@ -2396,9 +2620,15 @@ function AdminChannelsSection() {
                 )}
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-discord-text-muted mb-1">Description</label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Channel description..." className={inputCls + " resize-y"} />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-discord-text-muted mb-1">Description (EN)</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Channel description..." className={inputCls + " resize-y"} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-discord-text-muted mb-1">Description (中文)</label>
+                <textarea value={descriptionCn} onChange={(e) => setDescriptionCn(e.target.value)} rows={3} placeholder="频道描述..." className={inputCls + " resize-y"} />
+              </div>
             </div>
             {createError && <p className="text-sm text-discord-red">{createError}</p>}
             {createSuccess && <p className="text-sm text-green-400">{createSuccess}</p>}
@@ -2474,24 +2704,34 @@ function AdminChannelsSection() {
                   <div className="px-4 pb-4 border-t border-discord-border pt-3 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-discord-text-muted mb-1">Name *</label>
+                        <label className="block text-xs text-discord-text-muted mb-1">Name (EN) *</label>
                         <input value={editName} onChange={(e) => setEditName(e.target.value)} className={inputCls} />
                       </div>
-                      {ch.type === "task" && (
-                        <div>
-                          <label className="block text-xs text-discord-text-muted mb-1">Required Tag</label>
-                          <select value={editRequiredTagId} onChange={(e) => setEditRequiredTagId(e.target.value)} className={inputCls}>
-                            <option value="">No tag required</option>
-                            {allTags.map((tag) => (
-                              <option key={tag.id} value={tag.id}>{tag.name} {tag.nameCn ? `(${tag.nameCn})` : ""}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                      <div>
+                        <label className="block text-xs text-discord-text-muted mb-1">Name (中文)</label>
+                        <input value={editNameCn} onChange={(e) => setEditNameCn(e.target.value)} className={inputCls} />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs text-discord-text-muted mb-1">Description</label>
-                      <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={2} className={inputCls + " resize-none"} />
+                    {ch.type === "task" && (
+                      <div>
+                        <label className="block text-xs text-discord-text-muted mb-1">Required Tag</label>
+                        <select value={editRequiredTagId} onChange={(e) => setEditRequiredTagId(e.target.value)} className={inputCls}>
+                          <option value="">No tag required</option>
+                          {allTags.map((tag) => (
+                            <option key={tag.id} value={tag.id}>{tag.name} {tag.nameCn ? `(${tag.nameCn})` : ""}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-discord-text-muted mb-1">Description (EN)</label>
+                        <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={2} className={inputCls + " resize-none"} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-discord-text-muted mb-1">Description (中文)</label>
+                        <textarea value={editDescriptionCn} onChange={(e) => setEditDescriptionCn(e.target.value)} rows={2} className={inputCls + " resize-none"} />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs text-discord-text-muted mb-1">Assigned Mods</label>
@@ -2775,6 +3015,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
   const userItems: NavItem[] = [
     { id: "my-account", label: ts("myAccount") },
     { id: "profile", label: ts("profile") },
+    { id: "account-settings", label: ts("accountSettings") },
   ];
 
   const adminItems: NavItem[] = [
@@ -2855,6 +3096,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
         <div className="flex-1 bg-discord-bg overflow-y-auto px-12 py-14">
           {section === "my-account" && <MyAccountSection />}
           {section === "profile" && <ProfileSection />}
+          {section === "account-settings" && <AccountSettingsSection />}
           {section === "admin-overview" && <AdminOverviewSection />}
           {section === "admin-users" && <AdminUsersSection />}
           {section === "admin-invites" && <AdminInvitesSection />}

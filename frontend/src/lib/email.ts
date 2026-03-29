@@ -46,6 +46,30 @@ export async function sendEmail({ to, subject, html }: SendEmailParams): Promise
 }
 
 /**
+ * Send password reset email.
+ */
+export async function sendPasswordResetEmail(email: string, token: string): Promise<{ success: boolean; error?: string }> {
+  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+
+  return sendEmail({
+    to: email,
+    subject: "Reset your Content Creator Hub password",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #5865f2; font-size: 24px;">Content Creator Hub</h1>
+        <p style="color: #333; font-size: 16px;">We received a request to reset your password. Click the link below to set a new password:</p>
+        <a href="${resetUrl}" style="display: inline-block; background: #5865f2; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; margin: 16px 0;">
+          Reset Password
+        </a>
+        <p style="color: #666; font-size: 14px;">Or copy and paste this URL into your browser:</p>
+        <p style="color: #5865f2; font-size: 14px; word-break: break-all;">${resetUrl}</p>
+        <p style="color: #999; font-size: 12px; margin-top: 24px;">This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
+/**
  * Send verification email to a new user.
  */
 export async function sendVerificationEmail(email: string, token: string): Promise<{ success: boolean; error?: string }> {

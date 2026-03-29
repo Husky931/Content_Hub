@@ -13,6 +13,7 @@ import {
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { publishSystemMessage, publishTaskUpdate } from "@/lib/ws-publish";
+import { translateText } from "@/lib/llm";
 
 // GET /api/tasks — list tasks (with filters)
 export async function GET(req: NextRequest) {
@@ -384,6 +385,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Auto-translate missing language fields via LLM
+    let resolvedTitleCn = titleCn || null;
+    let resolvedDescriptionCn = descriptionCn || null;
+
+    try {
+      if (title && !titleCn) {
+        // English title provided, no Chinese — translate to Chinese
+        resolvedTitleCn = await translateText(title, "en", "zh");
+      }
+      if (description && !descriptionCn) {
+        resolvedDescriptionCn = await translateText(description, "en", "zh");
+      }
+    } catch (err) {
+      // Translation failure is non-blocking — proceed without translations
+      console.error("[task-create] Auto-translation failed:", err);
+    }
+
     // Verify channel exists and is a task channel
     const [channel] = await db
       .select()
@@ -408,9 +426,9 @@ export async function POST(req: NextRequest) {
         channelId,
         createdById: auth.userId,
         title,
-        titleCn: titleCn || null,
+        titleCn: resolvedTitleCn,
         description,
-        descriptionCn: descriptionCn || null,
+        descriptionCn: resolvedDescriptionCn,
         bountyUsd: bountyUsd || null,
         bountyRmb: bountyRmb || null,
         bonusBountyUsd: bonusBountyUsd || null,

@@ -4,7 +4,7 @@ import { POST } from "@/app/api/auth/signup-phone/route";
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
 jest.mock("@/db", () => ({
-  db: { select: jest.fn(), insert: jest.fn(), update: jest.fn() },
+  db: { select: jest.fn(), insert: jest.fn(), update: jest.fn(), delete: jest.fn() },
 }));
 jest.mock("@/lib/otp-store", () => ({ verifyOtp: jest.fn() }));
 jest.mock("@/lib/auth-edge", () => ({
@@ -48,10 +48,16 @@ function mockInsertNoReturn() {
   (db.insert as jest.Mock).mockReturnValueOnce({ values: valuesMock });
 }
 
-function mockUpdate() {
-  const whereMock = jest.fn().mockResolvedValue([]);
+function mockUpdate(returning: object[] = [{ id: "inv-1" }]) {
+  const returningMock = jest.fn().mockResolvedValue(returning);
+  const whereMock = jest.fn().mockReturnValue({ returning: returningMock });
   const setMock = jest.fn().mockReturnValue({ where: whereMock });
   (db.update as jest.Mock).mockReturnValueOnce({ set: setMock });
+}
+
+function mockDelete() {
+  const whereMock = jest.fn().mockResolvedValue([]);
+  (db.delete as jest.Mock).mockReturnValueOnce({ where: whereMock });
 }
 
 const validBody = {
@@ -146,8 +152,8 @@ describe("POST /api/auth/signup-phone", () => {
       mockSelect([]);
       // insert user (returning)
       mockInsert([{ id: "new-user-1" }]);
-      // update invite code
-      mockUpdate();
+      // atomic update invite code succeeds
+      mockUpdate([{ id: "c1" }]);
       // insert session
       mockInsertNoReturn();
 
@@ -158,6 +164,32 @@ describe("POST /api/auth/signup-phone", () => {
       expect(json.message).toBe("Account created successfully");
       expect(json.userId).toBe("new-user-1");
       expect(res.cookies.get("auth_token")).toBeTruthy();
+    });
+  });
+
+  describe("invite code race condition", () => {
+    it("returns 400 and cleans up user when atomic update returns empty", async () => {
+      (verifyOtp as jest.Mock).mockReturnValue(true);
+      // invite code found
+      mockSelect([{ id: "c1", code: "ABC123", status: "active", useCount: 0, maxUses: 10, expiresAt: null }]);
+      // phone not registered
+      mockSelect([]);
+      // username not taken
+      mockSelect([]);
+      // insert user (returning)
+      mockInsert([{ id: "new-user-1" }]);
+      // atomic update returns empty — race condition lost
+      mockUpdate([]);
+      // cleanup: delete the created user
+      mockDelete();
+
+      const res = await POST(makeRequest(validBody));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain("usage limit");
+
+      // Verify the user cleanup was attempted
+      expect(db.delete).toHaveBeenCalled();
     });
   });
 });

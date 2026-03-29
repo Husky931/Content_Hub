@@ -127,6 +127,16 @@ describe("PATCH /api/admin/users", () => {
     expect(json.success).toBe(true);
   });
 
+  it("changes user role to supercreator successfully", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "a1", role: "admin" });
+    mockUpdate();
+
+    const res = await PATCH(makePatchReq({ userId: "u1", action: "changeRole", role: "supercreator" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+  });
+
   it("bans user successfully", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "a1", role: "admin" });
     mockUpdate();

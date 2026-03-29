@@ -4,7 +4,7 @@ import { POST } from "@/app/api/auth/signup/route";
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
 jest.mock("@/db", () => ({
-  db: { select: jest.fn(), insert: jest.fn(), update: jest.fn() },
+  db: { select: jest.fn(), insert: jest.fn(), update: jest.fn(), delete: jest.fn() },
 }));
 jest.mock("@/lib/email", () => ({
   sendVerificationEmail: jest.fn().mockResolvedValue({ success: true }),
@@ -55,10 +55,16 @@ function mockInsert(returning: object[] = []) {
   });
 }
 
-function mockUpdate() {
-  const whereMock = jest.fn().mockResolvedValue([]);
+function mockUpdate(returning: object[] = [{ id: "inv-1" }]) {
+  const returningMock = jest.fn().mockResolvedValue(returning);
+  const whereMock = jest.fn().mockReturnValue({ returning: returningMock });
   const setMock = jest.fn().mockReturnValue({ where: whereMock });
   (db.update as jest.Mock).mockReturnValueOnce({ set: setMock });
+}
+
+function mockDelete() {
+  const whereMock = jest.fn().mockResolvedValue([]);
+  (db.delete as jest.Mock).mockReturnValueOnce({ where: whereMock });
 }
 
 beforeEach(() => jest.clearAllMocks());
@@ -174,7 +180,7 @@ describe("POST /api/auth/signup", () => {
       const valuesMock = jest.fn().mockReturnValue({ returning: returningMock });
       (db.insert as jest.Mock).mockReturnValueOnce({ values: valuesMock });
 
-      mockUpdate(); // update invite code
+      mockUpdate([{ id: "inv-1" }]); // atomic update succeeds
 
       // db.insert(verificationTokens).values({})
       const vtValuesMock = jest.fn().mockResolvedValue([]);
@@ -184,6 +190,30 @@ describe("POST /api/auth/signup", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.message).toMatch(/verify/i);
+    });
+  });
+
+  describe("invite code race condition", () => {
+    it("returns 400 and cleans up user when atomic update returns empty", async () => {
+      mockSelect([activeInvite]); // invite found
+      mockSelect([]);             // email available
+      mockSelect([]);             // username available
+
+      // db.insert(users) → new user created
+      const returningMock = jest.fn().mockResolvedValue([{ id: "new-user", email: "alice@example.com" }]);
+      const valuesMock = jest.fn().mockReturnValue({ returning: returningMock });
+      (db.insert as jest.Mock).mockReturnValueOnce({ values: valuesMock });
+
+      mockUpdate([]); // atomic update returns empty — race condition lost
+      mockDelete();   // cleanup: delete the created user
+
+      const res = await POST(makeRequest(validBody));
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain("usage limit");
+
+      // Verify the user cleanup was attempted
+      expect(db.delete).toHaveBeenCalled();
     });
   });
 });

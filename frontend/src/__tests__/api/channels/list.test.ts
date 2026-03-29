@@ -91,10 +91,9 @@ describe("GET /api/channels", () => {
       userId: "u1",
       role: "creator",
     });
-    // First select: all channels
-    mockSelectReturning(allChannels);
-    // Second select: user tags
-    mockSelectReturning([{ tagId: "tag-1" }]);
+    mockSelectReturning(allChannels);    // 1: all channels
+    mockSelectReturning([{ tagId: "tag-1" }]); // 2: user tags
+    mockSelectReturning([]);              // 3: unread channels query
 
     const res = await GET();
     expect(res.status).toBe(200);
@@ -113,16 +112,16 @@ describe("GET /api/channels", () => {
       userId: "u2",
       role: "creator",
     });
-    mockSelectReturning(allChannels);
-    mockSelectReturning([]); // no tags
+    mockSelectReturning(allChannels); // 1: all channels
+    mockSelectReturning([]);          // 2: no tags
+    mockSelectReturning([]);          // 3: unread channels
 
     const res = await GET();
     const json = await res.json();
-    // Should NOT see voiceover-basic (requires tag-1) or payment-issues
-    expect(json.channels).toHaveLength(2);
-    expect(json.channels.map((c: any) => c.slug)).toEqual(
-      expect.arrayContaining(["announcements", "general"])
-    );
+    // Creator sees all non-payment channels (tag-gated ones are visible but marked restricted)
+    // announcements + voiceover-basic + general = 3
+    expect(json.channels).toHaveLength(3);
+    expect(json.channels.map((c: any) => c.slug)).not.toContain("payment-issues");
   });
 
   it("shows all channels including payment-issues for admin", async () => {
@@ -130,8 +129,10 @@ describe("GET /api/channels", () => {
       userId: "admin-1",
       role: "admin",
     });
-    mockSelectReturning(allChannels);
-    mockSelectReturning([]); // admin bypasses tag check but still queries
+    mockSelectReturning(allChannels);  // 1: all channels
+    mockSelectReturning([]);           // 2: user tags
+    mockSelectReturning([]);           // 3: unread channels
+    mockSelectReturning([{ count: 0 }]); // 4: pending appeals count (mod/admin)
 
     const res = await GET();
     const json = await res.json();
@@ -144,8 +145,10 @@ describe("GET /api/channels", () => {
       userId: "smod-1",
       role: "supermod",
     });
-    mockSelectReturning(allChannels);
-    mockSelectReturning([]);
+    mockSelectReturning(allChannels); // 1: all channels
+    mockSelectReturning([]);          // 2: user tags
+    mockSelectReturning([]);          // 3: unread channels
+    mockSelectReturning([{ count: 0 }]); // 4: pending appeals count
 
     const res = await GET();
     const json = await res.json();

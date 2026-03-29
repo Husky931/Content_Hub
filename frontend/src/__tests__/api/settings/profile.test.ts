@@ -8,9 +8,13 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/llm", () => ({
+  moderateBio: jest.fn(),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
+import { moderateBio } from "@/lib/llm";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -54,8 +58,38 @@ describe("PUT /api/settings/profile", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 422 when bio is rejected by moderation", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
+    (moderateBio as jest.Mock).mockResolvedValue({ approved: false, reason: "Spam links" });
+
+    const res = await PUT(makeReq({ displayName: "Name", bio: "Buy stuff at http://spam.example" }));
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.error).toBe("Spam links");
+  });
+
+  it("allows update when bio passes moderation", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
+    (moderateBio as jest.Mock).mockResolvedValue({ approved: true });
+    mockUpdateReturning([{ ...baseUser, displayName: "Name", bio: "Clean bio" }]);
+
+    const res = await PUT(makeReq({ displayName: "Name", bio: "Clean bio" }));
+    expect(res.status).toBe(200);
+    expect(moderateBio).toHaveBeenCalledWith("Clean bio");
+  });
+
+  it("skips moderation when bio is empty", async () => {
+    (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
+    mockUpdateReturning([{ ...baseUser, displayName: "Name", bio: null }]);
+
+    const res = await PUT(makeReq({ displayName: "Name", bio: "" }));
+    expect(res.status).toBe(200);
+    expect(moderateBio).not.toHaveBeenCalled();
+  });
+
   it("updates display name and bio", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
+    (moderateBio as jest.Mock).mockResolvedValue({ approved: true });
     mockUpdateReturning([{ ...baseUser, displayName: "New Name", bio: "My bio" }]);
 
     const res = await PUT(makeReq({ displayName: "New Name", bio: "My bio" }));
@@ -67,6 +101,7 @@ describe("PUT /api/settings/profile", () => {
 
   it("trims whitespace from display name and bio", async () => {
     (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
+    (moderateBio as jest.Mock).mockResolvedValue({ approved: true });
     mockUpdateReturning([{ ...baseUser, displayName: "Trimmed", bio: "Clean" }]);
 
     const res = await PUT(makeReq({ displayName: "  Trimmed  ", bio: "  Clean  " }));

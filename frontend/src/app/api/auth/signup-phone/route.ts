@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, inviteCodes, sessions } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { verifyOtp } from "@/lib/otp-store";
 import { createJWT } from "@/lib/auth-edge";
 import { hashSync } from "bcryptjs";
@@ -93,15 +93,29 @@ export async function POST(req: NextRequest) {
       })
       .returning({ id: users.id });
 
-    // Update invite code usage
-    await db
+    // Atomically increment invite code usage (prevents race condition)
+    const [updated] = await db
       .update(inviteCodes)
       .set({
-        useCount: code.useCount + 1,
+        useCount: sql`${inviteCodes.useCount} + 1`,
         usedById: newUser.id,
-        status: code.useCount + 1 >= code.maxUses ? "used" : "active",
+        status: sql`CASE WHEN ${inviteCodes.useCount} + 1 >= ${code.maxUses} THEN 'used' ELSE 'active' END`,
       })
-      .where(eq(inviteCodes.id, code.id));
+      .where(
+        and(
+          eq(inviteCodes.id, code.id),
+          sql`${inviteCodes.useCount} < ${code.maxUses}`
+        )
+      )
+      .returning({ id: inviteCodes.id });
+
+    if (!updated) {
+      await db.delete(users).where(eq(users.id, newUser.id));
+      return NextResponse.json(
+        { error: "Invite code has reached its usage limit" },
+        { status: 400 }
+      );
+    }
 
     // Issue JWT session
     const { token, jti, expiresAt } = await createJWT({

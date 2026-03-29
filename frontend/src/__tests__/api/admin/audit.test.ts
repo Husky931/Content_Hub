@@ -8,6 +8,12 @@ jest.mock("@/db", () => ({
 jest.mock("@/lib/auth", () => ({
   getAuthFromCookies: jest.fn(),
 }));
+jest.mock("@/lib/ws-publish", () => ({
+  publishWalletUpdate: jest.fn().mockResolvedValue(undefined),
+  publishNotification: jest.fn().mockResolvedValue(undefined),
+  publishTaskUpdate: jest.fn().mockResolvedValue(undefined),
+  publishSystemMessage: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { db } from "@/db";
 import { getAuthFromCookies } from "@/lib/auth";
@@ -164,6 +170,7 @@ describe("POST /api/admin/audit", () => {
     mockSelect([{ username: "supermod1", displayName: "Super Mod" }]); // auditor info
     mockInsert(); // system message
     mockInsert(); // notification
+    mockSelect([{ slug: "voiceover-basic" }]); // channel slug for ws broadcasts
 
     const res = await POST(makePostReq({
       taskId: "t1",

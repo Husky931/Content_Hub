@@ -81,7 +81,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "changeRole") {
-      if (!role || !["creator", "mod", "supermod", "admin"].includes(role)) {
+      if (!role || !["creator", "supercreator", "mod", "supermod", "admin"].includes(role)) {
         return NextResponse.json({ error: "Invalid role" }, { status: 400 });
       }
       await db

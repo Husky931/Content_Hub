@@ -22,6 +22,8 @@ import {
   evaluateReply,
   generateWelcome,
   generateCongrats,
+  moderateBio,
+  translateText,
 } from "@/lib/llm";
 
 beforeEach(() => {
@@ -73,6 +75,26 @@ describe("openQuestion", () => {
     const callArgs = mockCreate.mock.calls[0][0];
     const userMsg = callArgs.messages.find((m: any) => m.role === "user");
     expect(userMsg.content).toMatch(/struggled with question 2/);
+  });
+
+  it("includes Chinese instruction when locale is zh", async () => {
+    mockCreate.mockResolvedValue(mockCompletion("欢迎来到课程！"));
+
+    await openQuestion("Teach about hooks", undefined, "zh");
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    const systemMsg = callArgs.messages.find((m: any) => m.role === "system");
+    expect(systemMsg.content).toContain("Respond entirely in Chinese");
+  });
+
+  it("does not include Chinese instruction when locale is en", async () => {
+    mockCreate.mockResolvedValue(mockCompletion("Welcome to the lesson!"));
+
+    await openQuestion("Teach about hooks", undefined, "en");
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    const systemMsg = callArgs.messages.find((m: any) => m.role === "system");
+    expect(systemMsg.content).not.toContain("Chinese");
   });
 });
 
@@ -145,6 +167,20 @@ describe("evaluateReply", () => {
     expect(systemMsg.content).toMatch(/HARD RULE/);
     expect(systemMsg.content).toMatch(/Do NOT reveal the answer/);
   });
+
+  it("includes Chinese instruction when locale is zh", async () => {
+    const llmResponse = JSON.stringify({
+      last_attempt_correct: true,
+      teacher_response: "做得好！",
+    });
+    mockCreate.mockResolvedValue(mockCompletion(llmResponse));
+
+    await evaluateReply("Hooks are...", conversation, 1, "zh");
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    const systemMsg = callArgs.messages.find((m: any) => m.role === "system");
+    expect(systemMsg.content).toContain("Respond entirely in Chinese");
+  });
 });
 
 // ────────────────────────────────────────────────
@@ -165,6 +201,16 @@ describe("generateWelcome", () => {
     const result = await generateWelcome("Bob", [], ["Lesson 1"]);
     expect(result).toBe("Welcome, Bob! Ready to start your training?");
   });
+
+  it("includes Chinese instruction when locale is zh", async () => {
+    mockCreate.mockResolvedValue(mockCompletion("你好 Alice，欢迎回来！"));
+
+    await generateWelcome("Alice", [], [], "zh");
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    const systemMsg = callArgs.messages.find((m: any) => m.role === "system");
+    expect(systemMsg.content).toContain("Respond entirely in Chinese");
+  });
 });
 
 // ────────────────────────────────────────────────
@@ -184,5 +230,64 @@ describe("generateCongrats", () => {
 
     const result = await generateCongrats("Dave", "Storytelling", 80, "Storyteller");
     expect(result).toBe("Congratulations, Dave! You've earned the Storyteller tag!");
+  });
+
+  it("includes Chinese instruction when locale is zh", async () => {
+    mockCreate.mockResolvedValue(mockCompletion("太棒了，Bob！"));
+
+    await generateCongrats("Bob", "Lesson", 90, "Tag", "zh");
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    const systemMsg = callArgs.messages.find((m: any) => m.role === "system");
+    expect(systemMsg.content).toContain("Respond entirely in Chinese");
+  });
+});
+
+// ────────────────────────────────────────────────
+// translateText
+// ────────────────────────────────────────────────
+
+describe("translateText", () => {
+  it("returns translated text", async () => {
+    mockCreate.mockResolvedValue(mockCompletion("你好"));
+
+    const result = await translateText("Hello", "en", "zh");
+    expect(result).toBe("你好");
+  });
+
+  it("returns empty string on LLM error", async () => {
+    mockCreate.mockRejectedValue(new Error("LLM unavailable"));
+
+    const result = await translateText("Hello", "en", "zh");
+    expect(result).toBe("");
+  });
+});
+
+// ────────────────────────────────────────────────
+// moderateBio
+// ────────────────────────────────────────────────
+
+describe("moderateBio", () => {
+  it("returns approved for clean bio", async () => {
+    const llmResponse = JSON.stringify({ approved: true, reason: null });
+    mockCreate.mockResolvedValue(mockCompletion(llmResponse));
+
+    const result = await moderateBio("I love making videos!");
+    expect(result).toEqual({ approved: true, reason: undefined });
+  });
+
+  it("returns rejected for NSFW content", async () => {
+    const llmResponse = JSON.stringify({ approved: false, reason: "Adult content detected" });
+    mockCreate.mockResolvedValue(mockCompletion(llmResponse));
+
+    const result = await moderateBio("some nsfw text");
+    expect(result).toEqual({ approved: false, reason: "Adult content detected" });
+  });
+
+  it("fails open when LLM throws", async () => {
+    mockCreate.mockRejectedValue(new Error("LLM unavailable"));
+
+    const result = await moderateBio("any bio text");
+    expect(result).toEqual({ approved: true });
   });
 });

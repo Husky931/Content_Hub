@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getAuthFromCookies } from "@/lib/auth";
 import { eq } from "drizzle-orm";
+import { moderateBio } from "@/lib/llm";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -13,11 +14,23 @@ export async function PUT(req: NextRequest) {
 
     const { displayName, bio } = await req.json();
 
+    // Moderate bio text if provided
+    const trimmedBio = bio?.trim() || null;
+    if (trimmedBio) {
+      const modResult = await moderateBio(trimmedBio);
+      if (!modResult.approved) {
+        return NextResponse.json(
+          { error: modResult.reason || "Bio content was rejected by moderation" },
+          { status: 422 }
+        );
+      }
+    }
+
     const [updated] = await db
       .update(users)
       .set({
         displayName: displayName?.trim() || null,
-        bio: bio?.trim() || null,
+        bio: trimmedBio,
         updatedAt: new Date(),
       })
       .where(eq(users.id, auth.userId))

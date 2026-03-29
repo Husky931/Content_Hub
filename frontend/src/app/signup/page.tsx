@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/Spinner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 type SignupMethod = "email" | "phone";
 
@@ -15,6 +15,7 @@ export default function SignupPage() {
   const t = useTranslations("auth");
   const tn = useTranslations("nav");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const [method, setMethod] = useState<SignupMethod>("email");
 
   // Shared
@@ -110,11 +111,30 @@ export default function SignupPage() {
     }
   };
 
+  const handleToggleLocale = () => {
+    const newLocale = locale === "en" ? "zh" : "en";
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=${365 * 24 * 60 * 60};samesite=lax`;
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-discord-bg-darker">
       <div className="w-full max-w-md">
         <div className="bg-discord-bg rounded-lg shadow-xl p-8">
           <div className="text-center mb-8">
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleToggleLocale}
+                className="flex items-center bg-discord-bg-dark border border-discord-border rounded-lg p-0.5"
+              >
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold transition ${locale === "en" ? "bg-discord-accent text-white" : "text-discord-text-muted"}`}>
+                  {tc("en")}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold transition ${locale === "zh" ? "bg-discord-accent text-white" : "text-discord-text-muted"}`}>
+                  {tc("zh")}
+                </span>
+              </button>
+            </div>
             <h1 className="text-2xl font-bold text-discord-text">{t("joinCreatorHub")}</h1>
             <p className="text-sm text-discord-text-secondary mt-2">{t("inviteCodeRequired")}</p>
           </div>

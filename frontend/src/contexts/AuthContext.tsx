@@ -14,7 +14,7 @@ interface User {
   id: string;
   email: string;
   username: string;
-  role: "creator" | "mod" | "supermod" | "admin";
+  role: "creator" | "supercreator" | "mod" | "supermod" | "admin";
   status: string;
   displayName: string | null;
   avatarUrl: string | null;

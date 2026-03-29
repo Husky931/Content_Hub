@@ -72,7 +72,19 @@
     "accountCreatedRedirect": "Account created! Redirecting…",
     "failedSendOtp": "Failed to send OTP",
     "loginFailed": "Login failed",
-    "signupFailed": "Signup failed"
+    "signupFailed": "Signup failed",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordSubtitle": "Enter your email and we'll send you a reset link",
+    "sendResetLink": "Send Reset Link",
+    "backToLogin": "Back to login",
+    "resetPassword": "Reset Password",
+    "resetPasswordSubtitle": "Enter your new password below",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "resetFailed": "Password reset failed",
+    "invalidResetLink": "Invalid or missing reset link.",
+    "requestNewLink": "Request a new reset link"
   },
   "settings": {
     "account": "Account",
@@ -103,6 +115,23 @@
     "avatarUpdated": "Avatar updated.",
     "uploadFailed": "Upload failed.",
     "myAccount": "My Account",
+    "accountSettings": "Account Settings",
+    "accountSettingsDesc": "Manage your account credentials: password and email.",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "updatePassword": "Update Password",
+    "passwordRequirements": "8+ characters",
+    "passwordUpdated": "Password updated successfully.",
+    "currentPasswordIncorrect": "Current password is incorrect.",
+    "passwordsDoNotMatch": "New passwords do not match.",
+    "emailAddress": "Email Address",
+    "currentEmail": "Current Email",
+    "verified": "Verified",
+    "phoneNumber": "Phone Number",
+    "currentPhone": "Current Phone",
+    "noPhoneSet": "No phone number set",
     "customizeProfile": "Customize your public profile. Changes are auto-moderated and applied instantly if approved."
   },
   "tasks": {
@@ -235,6 +264,7 @@
   },
   "roles": {
     "creator": "Creator",
+    "supercreator": "Super Creator",
     "mod": "Mod",
     "supermod": "Supermod",
     "admin": "Admin"

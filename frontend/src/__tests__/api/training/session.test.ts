@@ -86,8 +86,8 @@ describe("POST /api/training/session", () => {
     it("returns 200 with welcome message and lesson list", async () => {
       (getAuthFromCookies as jest.Mock).mockResolvedValue({ userId: "u1", role: "creator" });
 
-      // 1. select user
-      mockSelect([{ username: "alice", displayName: "Alice" }]);
+      // 1. select user (with locale)
+      mockSelect([{ username: "alice", displayName: "Alice", locale: "en" }]);
       // 2. select published lessons
       mockSelect([
         { id: "les-1", title: "Lesson 1", titleCn: null, description: "desc", descriptionCn: null, order: 1, status: "published", tagId: "tag-1", prerequisiteTagId: null },
@@ -173,10 +173,12 @@ describe("POST /api/training/session", () => {
       mockSelect([{ id: "prog-1", userId: "u1", lessonId: "les-1", status: "in_training", currentPromptIndex: 0, conversationHistory: [], attempts: 0 }]);
       // 2. select prompts for lesson (ordered)
       mockSelect([{ id: "pr-1", content: "Explain X", order: 0, resources: ["link1"], lessonId: "les-1" }]);
+      // 3. select user locale
+      mockSelect([{ locale: "en" }]);
 
       (openQuestion as jest.Mock).mockResolvedValue("Teacher says: Let me explain X.");
 
-      // 3. update progress
+      // 4. update progress
       mockUpdate();
 
       const res = await POST(makeReq({ action: "chat-open", userProgressId: "prog-1", promptIndex: 0 }));
@@ -210,6 +212,8 @@ describe("POST /api/training/session", () => {
       }]);
       // 2. select prompts
       mockSelect([{ id: "pr-1", content: "Explain X", order: 0, lessonId: "les-1" }]);
+      // 3. select user locale
+      mockSelect([{ locale: "en" }]);
 
       (evaluateReply as jest.Mock).mockResolvedValue({
         teacher_response: "Correct!",
@@ -217,7 +221,7 @@ describe("POST /api/training/session", () => {
         student_is_attempting_cheating: false,
       });
 
-      // 3. update progress
+      // 4. update progress
       mockUpdate();
 
       const res = await POST(makeReq({ action: "chat-reply", userProgressId: "prog-1", message: "X is something" }));
