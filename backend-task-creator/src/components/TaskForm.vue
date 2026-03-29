@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from "vue";
 import FileUpload from "./FileUpload.vue";
 import type { UploadedFile } from "./FileUpload.vue";
+import DeliverableSlotEditor from "./DeliverableSlotEditor.vue";
+import type { DeliverableSlot } from "./DeliverableSlotEditor.vue";
 
 const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
 const API_KEY = import.meta.env.VITE_BACKEND_API_KEY || "test-api-key";
@@ -66,9 +68,16 @@ async function fetchChannels() {
 
 onMounted(fetchChannels);
 
-// Checklist
+// Checklist (review)
 const checklistItems = ref<string[]>([]);
 const newChecklistItem = ref("");
+
+// Self-checklist (creator guidance)
+const selfChecklistItems = ref<string[]>([]);
+const newSelfChecklistItem = ref("");
+
+// Deliverable slots
+const deliverableSlots = ref<DeliverableSlot[]>([]);
 
 // Attachments
 const attachments = ref<UploadedFile[]>([]);
@@ -99,6 +108,24 @@ function handleChecklistKeydown(e: KeyboardEvent) {
   }
 }
 
+function addSelfChecklistItem() {
+  const text = newSelfChecklistItem.value.trim();
+  if (!text) return;
+  selfChecklistItems.value.push(text);
+  newSelfChecklistItem.value = "";
+}
+
+function removeSelfChecklistItem(index: number) {
+  selfChecklistItems.value.splice(index, 1);
+}
+
+function handleSelfChecklistKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addSelfChecklistItem();
+  }
+}
+
 async function handleSubmit() {
   submitting.value = true;
   result.value = null;
@@ -121,6 +148,14 @@ async function handleSubmit() {
 
   if (checklistItems.value.length > 0) {
     payload.checklist = checklistItems.value.map((label) => ({ label }));
+  }
+
+  if (selfChecklistItems.value.length > 0) {
+    payload.selfChecklist = selfChecklistItems.value.map((label) => ({ label }));
+  }
+
+  if (deliverableSlots.value.length > 0) {
+    payload.deliverableSlots = deliverableSlots.value;
   }
 
   if (attachments.value.length > 0) {
@@ -162,6 +197,8 @@ async function handleSubmit() {
       deadline.value = "";
       externalId.value = generateExternalId();
       checklistItems.value = [];
+      selfChecklistItems.value = [];
+      deliverableSlots.value = [];
       attachments.value = [];
     } else {
       result.value = {
@@ -281,6 +318,33 @@ async function handleSubmit() {
           <span class="check-icon">&#10003;</span>
           <span class="check-text">{{ item }}</span>
           <button type="button" class="remove-btn" @click="removeChecklistItem(i)">x</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deliverable Slots -->
+    <div class="section-title">Deliverable Slots</div>
+    <DeliverableSlotEditor
+      :slots="deliverableSlots"
+      @update:slots="deliverableSlots = $event"
+    />
+
+    <!-- Self-Checklist (creator guidance) -->
+    <div class="section-title">Creator Self-Checklist</div>
+    <div class="checklist">
+      <div class="checklist-input">
+        <input
+          v-model="newSelfChecklistItem"
+          placeholder="Add guidance item for creators..."
+          @keydown="handleSelfChecklistKeydown"
+        />
+        <button type="button" class="add-btn" @click="addSelfChecklistItem">+ Add</button>
+      </div>
+      <div v-if="selfChecklistItems.length > 0" class="checklist-items">
+        <div v-for="(item, i) in selfChecklistItems" :key="i" class="checklist-item self">
+          <span class="check-icon">&#9679;</span>
+          <span class="check-text">{{ item }}</span>
+          <button type="button" class="remove-btn" @click="removeSelfChecklistItem(i)">x</button>
         </div>
       </div>
     </div>
@@ -451,6 +515,10 @@ async function handleSubmit() {
 
 .check-text {
   flex: 1;
+}
+
+.checklist-item.self {
+  background: #f0f4ff;
 }
 
 .remove-btn {
