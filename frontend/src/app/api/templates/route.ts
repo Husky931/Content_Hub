@@ -28,6 +28,7 @@ export async function GET() {
         checklist: taskTemplates.checklist,
         selfChecklist: taskTemplates.selfChecklist,
         deliverableSlots: taskTemplates.deliverableSlots,
+        attachments: taskTemplates.attachments,
         createdByUsername: users.username,
         createdAt: taskTemplates.createdAt,
       })
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, nameCn, category, description, descriptionCn, bountyUsd, bountyRmb, bonusBountyUsd, bonusBountyRmb, maxAttempts, checklist, selfChecklist, deliverableSlots } = body;
+    const { name, nameCn, category, description, descriptionCn, bountyUsd, bountyRmb, bonusBountyUsd, bonusBountyRmb, maxAttempts, checklist, selfChecklist, deliverableSlots, attachments } = body;
 
     if (!name || !category) {
       return NextResponse.json({ error: "Name and category are required" }, { status: 400 });
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
         checklist: checklist || null,
         selfChecklist: selfChecklist || null,
         deliverableSlots: deliverableSlots || null,
+        attachments: attachments || null,
         createdById: auth.userId,
       })
       .returning();

@@ -10,7 +10,6 @@ type SettingsSection =
   | "admin-invites"
   | "admin-tags"
   | "admin-tasks"
-  | "admin-templates"
   | "admin-channels"
   | "admin-audit"
   | "admin-training"

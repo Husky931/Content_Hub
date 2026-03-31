@@ -522,6 +522,10 @@ export const taskTemplates = pgTable("task_templates", {
   deliverableSlots: jsonb("deliverable_slots").$type<
     import("@/types/deliverable-slot").DeliverableSlot[]
   >(),
+  /** Reference files attached to the template — array of { name, url, type, size } */
+  attachments: jsonb("attachments").$type<
+    { name: string; url: string; type: string; size: number }[]
+  >(),
   createdById: uuid("created_by_id")
     .notNull()
     .references(() => users.id),
