@@ -145,6 +145,7 @@ export async function GET(req: NextRequest) {
         attachments: tasks.attachments,
         deliverableSlots: tasks.deliverableSlots,
         channelName: channels.name,
+        channelNameCn: channels.nameCn,
         channelSlug: channels.slug,
         createdByUsername: users.username,
         createdByDisplayName: users.displayName,

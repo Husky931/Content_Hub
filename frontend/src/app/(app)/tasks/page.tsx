@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 
 interface MyAttemptInfo {
   id: string;
@@ -40,6 +41,7 @@ interface Task {
   myAttempt?: MyAttemptInfo | null;
   myAllAttempts?: MyAttemptHistoryItem[];
   channelName: string;
+  channelNameCn?: string | null;
   channelSlug: string;
   createdByUsername: string;
   createdAt: string;
@@ -92,6 +94,7 @@ export default function TaskListPage() {
 function TaskListContent() {
   const t = useTranslations("tasks");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -359,14 +362,14 @@ function TaskListContent() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-discord-text truncate">
-                            {task.title}
+                            {localized(locale, task.title, task.titleCn)}
                           </span>
                           <span
                             className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${getChannelColor(
                               task.channelSlug
                             )}`}
                           >
-                            {task.channelName}
+                            {localized(locale, task.channelName, task.channelNameCn)}
                           </span>
                           {task.bonusBountyUsd &&
                             parseFloat(task.bonusBountyUsd) > 0 && (

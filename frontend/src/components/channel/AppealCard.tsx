@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ButtonSpinner } from "@/components/ui/Spinner";
 import { FilePreviewList, type UploadedFile } from "@/components/ui/FileUpload";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 
 interface AppealData {
   id: string;
@@ -32,6 +33,7 @@ interface AppealData {
   task: {
     id: string;
     title: string;
+    titleCn?: string | null;
   } | null;
   channelSlug: string | null;
   channelName: string | null;
@@ -50,6 +52,7 @@ interface AppealCardProps {
 export function AppealCard({ appeal, onResolved }: AppealCardProps) {
   const { user } = useAuth();
   const t = useTranslations("appeals");
+  const locale = useLocale();
   const [expanded, setExpanded] = useState(appeal.status === "pending");
   const [arbitratorNote, setArbitratorNote] = useState("");
   const [resolving, setResolving] = useState(false);
@@ -132,7 +135,7 @@ export function AppealCard({ appeal, onResolved }: AppealCardProps) {
           {statusBadge.label}
         </span>
         <span className="text-sm font-medium text-discord-text truncate">
-          {appeal.task?.title || t("unknownTask")}
+          {appeal.task ? localized(locale, appeal.task.title, appeal.task.titleCn) : t("unknownTask")}
         </span>
         {appeal.channelName && (
           <span className="text-xs px-1.5 py-0.5 rounded bg-discord-bg-hover text-discord-text-muted font-medium">

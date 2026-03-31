@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useSettingsModal } from "@/contexts/SettingsModalContext";
 import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 import { getSocket, onSocketReady, WS_EVENTS } from "@/lib/realtime";
 
 export function ChannelNavbar() {
@@ -22,7 +23,7 @@ export function ChannelNavbar() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Channel info (only for /channels/[slug] pages)
-  const [channelInfo, setChannelInfo] = useState<{ slug: string; name: string; description: string | null } | null>(null);
+  const [channelInfo, setChannelInfo] = useState<{ slug: string; name: string; nameCn?: string | null; description: string | null; descriptionCn?: string | null } | null>(null);
 
   // Determine current page context
   const channelMatch = pathname.match(/^\/channels\/([^/]+)/);
@@ -98,7 +99,7 @@ export function ChannelNavbar() {
       .then((data) => {
         if (cancelled) return;
         if (data.channel) {
-          setChannelInfo({ slug: currentSlug, name: data.channel.name, description: data.channel.description });
+          setChannelInfo({ slug: currentSlug, name: data.channel.name, nameCn: data.channel.nameCn, description: data.channel.description, descriptionCn: data.channel.descriptionCn });
         }
       })
       .catch(() => {
@@ -132,8 +133,8 @@ export function ChannelNavbar() {
 
   // Derive channel fields — only use if fetched data matches current slug
   const isCurrentChannel = channelInfo?.slug === currentSlug;
-  const channelName = isCurrentChannel ? channelInfo?.name ?? "" : "";
-  const channelDescription = isCurrentChannel ? channelInfo?.description ?? null : null;
+  const channelName = isCurrentChannel ? localized(locale, channelInfo?.name ?? "", channelInfo?.nameCn) : "";
+  const channelDescription = isCurrentChannel ? localized(locale, channelInfo?.description ?? "", channelInfo?.descriptionCn) : null;
 
   // Title to display
   const displayTitle = isChannelPage

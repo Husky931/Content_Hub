@@ -7,7 +7,8 @@ import { FileUpload, FilePreviewList, type UploadedFile } from "@/components/ui/
 import { useRouter } from "next/navigation";
 import type { DeliverableSlot } from "@/types/deliverable-slot";
 import { slotTypeLabel, slotTypeIcon, isUploadType, SLOT_TYPE_BADGE } from "@/types/deliverable-slot";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 import { validateDeliverablesError } from "@/lib/validate-deliverables";
 
 /** Per-slot deliverable data submitted by creator */
@@ -32,6 +33,7 @@ interface TaskCardProps {
     title: string;
     titleCn?: string | null;
     description: string;
+    descriptionCn?: string | null;
     status: string;
     bountyUsd: string | null;
     bountyRmb: string | null;
@@ -105,6 +107,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
   const router = useRouter();
   const t = useTranslations("taskCard");
   const tTasks = useTranslations("tasks");
+  const locale = useLocale();
   const formatRelativeDate = useFormatRelativeDate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
@@ -411,7 +414,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
           </span>
         )}
         <h4 className="font-semibold text-sm text-discord-text flex-1 truncate ml-1">
-          {task.title}
+          {localized(locale, task.title, task.titleCn)}
         </h4>
       </div>
 
@@ -445,7 +448,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
       {!expanded && (
         <div className="px-4 pb-2">
           <p className="text-xs text-discord-text-secondary line-clamp-2">
-            {task.description}
+            {localized(locale, task.description, task.descriptionCn)}
           </p>
         </div>
       )}
@@ -565,7 +568,7 @@ export function TaskCard({ task, onAttemptSubmitted, defaultExpanded }: TaskCard
         <div className="border-t border-discord-border/50 bg-discord-bg-dark/40">
           {/* ── Task Description ── */}
           <div className="px-4 py-3 border-b border-discord-border/30">
-            <p className="text-sm text-discord-text-secondary whitespace-pre-wrap leading-relaxed">{task.description}</p>
+            <p className="text-sm text-discord-text-secondary whitespace-pre-wrap leading-relaxed">{localized(locale, task.description, task.descriptionCn)}</p>
           </div>
 
           {/* ── Meta Stats Row ── */}

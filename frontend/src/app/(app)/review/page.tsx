@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ButtonSpinner } from "@/components/ui/Spinner";
@@ -65,6 +66,7 @@ function ReviewContent() {
   const t = useTranslations("review");
   const tc = useTranslations("common");
   const tt = useTranslations("tasks");
+  const locale = useLocale();
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -362,7 +364,7 @@ function ReviewContent() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-discord-text truncate">
-                        {task.title}
+                        {localized(locale, task.title, task.titleCn)}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {task.status === "locked" && (

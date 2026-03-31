@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { UserPanel } from "./UserPanel";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 import { getSocket, WS_EVENTS } from "@/lib/realtime";
 
 interface Channel {
   id: string;
   name: string;
+  nameCn?: string | null;
   slug: string;
   type: "special" | "task" | "discussion";
   description: string | null;
@@ -23,6 +25,7 @@ interface Channel {
 export function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations("nav");
+  const locale = useLocale();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
@@ -142,7 +145,7 @@ export function Sidebar() {
                 <span className="text-discord-text-muted font-medium">
                   {channelIcon(ch.type)}
                 </span>
-                <span className="truncate">{ch.name}</span>
+                <span className="truncate">{localized(locale, ch.name, ch.nameCn)}</span>
 
                 {/* Pending appeals badge */}
                 {ch.slug === "appeals" &&

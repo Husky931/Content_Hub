@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Spinner } from "@/components/ui/Spinner";
+import { useLocale } from "next-intl";
+import { localized } from "@/lib/localize";
 import { SignedMedia } from "@/components/ui/SignedMedia";
 import { FileUpload, type UploadedFile } from "@/components/ui/FileUpload";
 
@@ -42,6 +44,7 @@ type Stage = "welcome" | "training" | "test" | "result" | "review";
 export function TrainingView() {
   const [stage, setStage] = useState<Stage>("welcome");
   const [loading, setLoading] = useState(true);
+  const locale = useLocale();
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [lessons, setLessons] = useState<LessonInfo[]>([]);
 
@@ -49,6 +52,7 @@ export function TrainingView() {
   const [activeLesson, setActiveLesson] = useState<{
     id: string;
     title: string;
+    titleCn?: string | null;
   } | null>(null);
   const [progressId, setProgressId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -161,7 +165,7 @@ export function TrainingView() {
       });
       if (res.ok) {
         const data = await res.json();
-        setActiveLesson({ id: data.lesson.id, title: data.lesson.title });
+        setActiveLesson({ id: data.lesson.id, title: data.lesson.title, titleCn: data.lesson.titleCn });
         setReviewTotalPrompts(data.totalPrompts);
         setReviewingFromTest(fromTest);
         // Convert saved history to ChatMessage format
@@ -429,7 +433,7 @@ export function TrainingView() {
                     </span>
                     <div className="flex-1">
                       <div className="text-sm font-medium text-discord-text">
-                        {lesson.title}
+                        {localized(locale, lesson.title, lesson.titleCn)}
                       </div>
                       {lesson.description && (
                         <div className="text-[11px] text-discord-text-muted">
@@ -506,7 +510,7 @@ export function TrainingView() {
             ← Exit
           </button>
           <span className="text-xs text-discord-text font-medium">
-            {activeLesson?.title}
+            {activeLesson ? localized(locale, activeLesson.title, activeLesson.titleCn) : ""}
           </span>
           <div className="flex-1 h-1.5 bg-discord-bg-darker rounded-full overflow-hidden">
             <div
@@ -655,7 +659,7 @@ export function TrainingView() {
         {/* Header */}
         <div className="px-6 py-2 bg-discord-bg-dark border-b border-discord-bg-darker/60 flex items-center gap-3 shrink-0">
           <span className="text-xs text-discord-text font-medium">
-            Test — {activeLesson?.title}
+            Test — {activeLesson ? localized(locale, activeLesson.title, activeLesson.titleCn) : ""}
           </span>
           <div className="flex-1" />
           <span className="text-[10px] text-discord-text-muted">
@@ -1025,7 +1029,7 @@ export function TrainingView() {
             ← {reviewingFromTest ? "Back to Test" : "Back to Training"}
           </button>
           <span className="text-xs text-discord-text font-medium">
-            {activeLesson?.title} — Review
+            {activeLesson ? localized(locale, activeLesson.title, activeLesson.titleCn) : ""} — Review
           </span>
           <div className="flex-1" />
           <span className="text-[10px] text-green-400 font-medium">
