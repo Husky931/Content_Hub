@@ -148,7 +148,6 @@ export async function GET(req: NextRequest) {
         channelSlug: channels.slug,
         createdByUsername: users.username,
         createdByDisplayName: users.displayName,
-        reviewClaimedById: tasks.reviewClaimedById,
         lockedById: tasks.lockedById,
         lockExpiresAt: tasks.lockExpiresAt,
       })
@@ -243,21 +242,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Resolve reviewer names for tasks that have a review claim
-    const reviewerIds = [
-      ...new Set(filtered.map((t) => t.reviewClaimedById).filter(Boolean)),
-    ] as string[];
-    let reviewerMap: Record<string, string> = {};
-    if (reviewerIds.length > 0) {
-      const reviewers = await db
-        .select({ id: users.id, username: users.username, displayName: users.displayName })
-        .from(users)
-        .where(inArray(users.id, reviewerIds));
-      for (const r of reviewers) {
-        reviewerMap[r.id] = r.displayName || r.username;
-      }
-    }
-
     // Get current user's latest attempt for each task
     let myAttempts: Record<string, { id: string; status: string; deliverables: any }> = {};
     // Also get ALL user attempts per task for the "Your Previous Attempts" section
@@ -333,7 +317,6 @@ export async function GET(req: NextRequest) {
           submittedCount: submittedCounts[t.id] || 0,
           othersAttempting: othersAttempting[t.id] || [],
           myAllAttempts: myAllAttempts[t.id] || [],
-          reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
         };
       }),
     });

@@ -197,9 +197,6 @@
   },
   "review": {
     "reviewQueue": "Review Queue",
-    "claimedBy": "Claimed by {name}",
-    "claimForReview": "Claim for Review",
-    "claiming": "Claiming...",
     "noTasksToReview": "No tasks to review",
     "selectTask": "Select a task from the left to begin reviewing",
     "submissions": "{count} submission",
@@ -221,8 +218,6 @@
     "lockConfirm": "Lock this task for creator revision?",
     "unlockConfirm": "Unlock this task?",
     "lockedBy": "Locked by {name}",
-    "failedToClaim": "Failed to claim task for review",
-    "networkErrorClaiming": "Network error while claiming",
     "taskAttachments": "Task Attachments",
     "deliverables": "Deliverables",
     "textResponse": "Text Response",

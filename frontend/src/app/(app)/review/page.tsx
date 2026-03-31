@@ -31,8 +31,6 @@ interface TaskWithAttempts {
   channelName: string;
   channelSlug: string;
   createdById: string;
-  reviewClaimedById: string | null;
-  reviewClaimedBy: string | null;
   checklist?: ChecklistItem[] | null;
   attachments?: { name: string; url: string; type: string; size: number }[] | null;
   deliverableSlots?: DeliverableSlot[] | null;
@@ -79,7 +77,6 @@ function ReviewContent() {
   const [reviewNote, setReviewNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [claiming, setClaiming] = useState(false);
   const [reviewError, setReviewError] = useState("");
   // Checklist state: tracks which items pass (true = pass, false = fail)
   const [checklistState, setChecklistState] = useState<Record<number, boolean>>({});
@@ -112,8 +109,6 @@ function ReviewContent() {
           channelName: task.channelName,
           channelSlug: task.channelSlug,
           createdById: task.createdById,
-          reviewClaimedById: task.reviewClaimedById,
-          reviewClaimedBy: task.reviewClaimedBy,
           checklist: task.checklist || null,
           attachments: task.attachments || null,
           deliverableSlots: task.deliverableSlots || null,
@@ -175,43 +170,7 @@ function ReviewContent() {
     };
   }, [fetchReviewItems]);
 
-  const claimTask = async (task: TaskWithAttempts) => {
-    setClaiming(true);
-    setReviewError("");
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/claim-review`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setReviewError(data.error || t("failedToClaim"));
-        return false;
-      }
-      return true;
-    } catch {
-      setReviewError(t("networkErrorClaiming"));
-      return false;
-    } finally {
-      setClaiming(false);
-    }
-  };
-
-  const releaseTask = async (task: TaskWithAttempts) => {
-    try {
-      await fetch(`/api/tasks/${task.id}/claim-review`, {
-        method: "DELETE",
-      });
-    } catch {
-      // Silent fail on release
-    }
-  };
-
-  const handleSelectTask = async (task: TaskWithAttempts) => {
-    // Release previous task claim if switching
-    if (selectedTask && selectedTask.id !== task.id && selectedTask.reviewClaimedById === user?.id) {
-      await releaseTask(selectedTask);
-    }
-
+  const handleSelectTask = (task: TaskWithAttempts) => {
     setReviewNote("");
     setRejectionReason("");
     setReviewError("");
@@ -225,43 +184,8 @@ function ReviewContent() {
       setChecklistState({});
     }
 
-    // Locked tasks with no attempts — just show the locked info (no claim needed)
-    if (task.status === "locked" && task.attempts.length === 0) {
-      setSelectedTask(task);
-      return;
-    }
-
-    const claimedByOther = task.reviewClaimedById && task.reviewClaimedById !== user?.id;
-
-    // If already claimed by someone else, just view it
-    if (claimedByOther) {
-      setSelectedTask(task);
-      return;
-    }
-
-    // If already claimed by us, just select
-    if (task.reviewClaimedById === user?.id) {
-      setSelectedTask(task);
-      if (task.attempts.length > 0) setSelectedAttempt(task.attempts[0]);
-      return;
-    }
-
-    // Attempt to claim
-    const claimed = await claimTask(task);
-    if (claimed) {
-      const updatedTask = {
-        ...task,
-        reviewClaimedById: user?.id ?? null,
-        reviewClaimedBy: user?.displayName || user?.username || null,
-      };
-      setSelectedTask(updatedTask);
-      setTasksWithAttempts((prev) =>
-        prev.map((t) => (t.id === task.id ? updatedTask : t))
-      );
-      if (updatedTask.attempts.length > 0) setSelectedAttempt(updatedTask.attempts[0]);
-    } else {
-      await fetchReviewItems();
-    }
+    setSelectedTask(task);
+    if (task.attempts.length > 0) setSelectedAttempt(task.attempts[0]);
   };
 
   // Auto-select the task from notification link (only once, on first load)
@@ -274,15 +198,7 @@ function ReviewContent() {
     }
   }, [taskFilter, loading, tasksWithAttempts]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDeselectTask = async () => {
-    if (selectedTask && selectedTask.reviewClaimedById === user?.id) {
-      await releaseTask(selectedTask);
-      setTasksWithAttempts((prev) =>
-        prev.map((t) =>
-          t.id === selectedTask.id ? { ...t, reviewClaimedById: null, reviewClaimedBy: null } : t
-        )
-      );
-    }
+  const handleDeselectTask = () => {
     setSelectedTask(null);
     setSelectedAttempt(null);
     setReviewNote("");
@@ -400,9 +316,7 @@ function ReviewContent() {
     }
   };
 
-  const isClaimedByMe = selectedTask?.reviewClaimedById === user?.id;
-  const claimedByOther = selectedTask?.reviewClaimedById && selectedTask.reviewClaimedById !== user?.id;
-  const canReview = isClaimedByMe && selectedAttempt && selectedAttempt.userId !== user?.id;
+  const canReview = selectedTask && selectedAttempt && selectedAttempt.userId !== user?.id;
   const hasFailedChecklist = Object.values(checklistState).some((v) => !v);
   const canApprove = canReview && !hasFailedChecklist;
 
@@ -436,20 +350,13 @@ function ReviewContent() {
           ) : (
             <div className="space-y-2">
               {tasksWithAttempts.map((task) => {
-                const isClaimed = !!task.reviewClaimedById;
-                const isMyTask = task.reviewClaimedById === user?.id;
-                const isOthersClaim = isClaimed && !isMyTask;
-
                 return (
                   <button
                     key={task.id}
                     onClick={() => handleSelectTask(task)}
-                    disabled={claiming}
                     className={`w-full text-left p-3 rounded-lg border transition ${
                       selectedTask?.id === task.id
                         ? "bg-discord-accent/10 border-discord-accent"
-                        : isOthersClaim
-                        ? "bg-amber-500/5 border-amber-500/30 opacity-70"
                         : "bg-discord-sidebar border-discord-border hover:bg-discord-bg-hover/50"
                     }`}
                   >
@@ -492,17 +399,6 @@ function ReviewContent() {
                         {task.attempts.length > 3 && (
                           <span className="text-[10px] text-discord-text-muted">+{task.attempts.length - 3} more</span>
                         )}
-                      </div>
-                    )}
-                    {isClaimed && (
-                      <div className="mt-1.5 flex items-center gap-1">
-                        <svg className="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        <span className="text-xs text-amber-400 font-medium">
-                          {isMyTask ? t("claimForReview") : t("claimedBy", { name: task.reviewClaimedBy ?? "" })}
-                        </span>
                       </div>
                     )}
                   </button>
@@ -588,17 +484,8 @@ function ReviewContent() {
                 </div>
               )}
 
-              {/* Claimed by other warning */}
-              {claimedByOther && (
-                <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                  <p className="text-sm text-amber-400">
-                    {t("claimedBy", { name: selectedTask.reviewClaimedBy ?? "" })}
-                  </p>
-                </div>
-              )}
-
               {/* === LOCKED TASK: Split view — locked user's revision vs other attempts === */}
-              {selectedTask.status === "locked" && isClaimedByMe && (() => {
+              {selectedTask.status === "locked" && selectedTask.attempts.length > 0 && (() => {
                 const lockedAttempts = selectedTask.attempts.filter((a) => a.userId === selectedTask.lockedById);
                 const otherAttempts = selectedTask.attempts.filter((a) => a.userId !== selectedTask.lockedById);
                 const lockedAttempt = lockedAttempts.length > 0 ? lockedAttempts[lockedAttempts.length - 1] : null;
@@ -849,7 +736,7 @@ function ReviewContent() {
               {selectedTask.status !== "locked" && (
                 <>
                   {/* Attempt selector tabs */}
-                  {isClaimedByMe && selectedTask.attempts.length > 1 && (
+                  {selectedTask.attempts.length > 1 && (
                     <div className="flex gap-1 mb-4 overflow-x-auto">
                       {selectedTask.attempts.map((a) => (
                         <button
@@ -873,7 +760,7 @@ function ReviewContent() {
                   )}
 
                   {/* Selected attempt detail */}
-                  {selectedAttempt && isClaimedByMe && (
+                  {selectedAttempt && (
                     <>
                       <div className="mb-4">
                         <p className="text-sm text-discord-text-muted">
@@ -893,7 +780,7 @@ function ReviewContent() {
                       <DeliverableDisplay deliverables={selectedAttempt.deliverables} slots={selectedTask.deliverableSlots} />
 
                       {/* Review Checklist */}
-                      {selectedTask.checklist && selectedTask.checklist.length > 0 && isClaimedByMe && (
+                      {selectedTask.checklist && selectedTask.checklist.length > 0 && (
                         <div className="mb-6 p-4 bg-discord-bg-dark rounded-lg border border-discord-border">
                           <h4 className="text-xs font-semibold text-discord-text-muted mb-1 uppercase">
                             Review Checklist

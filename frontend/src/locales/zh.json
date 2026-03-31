@@ -197,9 +197,6 @@
   },
   "review": {
     "reviewQueue": "审核队列",
-    "claimedBy": "由 {name} 认领",
-    "claimForReview": "认领审核",
-    "claiming": "认领中...",
     "noTasksToReview": "没有待审核的任务",
     "selectTask": "从左侧选择一个任务开始审核",
     "submissions": "{count} 个提交",
@@ -221,8 +218,6 @@
     "lockConfirm": "确认锁定此任务以便创作者修改？",
     "unlockConfirm": "确认解锁此任务？",
     "lockedBy": "由 {name} 锁定",
-    "failedToClaim": "认领审核失败",
-    "networkErrorClaiming": "认领时网络错误",
     "taskAttachments": "任务附件",
     "deliverables": "交付物",
     "textResponse": "文字回复",

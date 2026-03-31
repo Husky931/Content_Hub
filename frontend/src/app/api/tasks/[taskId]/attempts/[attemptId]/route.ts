@@ -83,20 +83,6 @@ export async function PATCH(
       );
     }
 
-    // Must have claimed this task's review queue
-    if (!task.reviewClaimedById) {
-      return NextResponse.json(
-        { error: "You must claim this task for review first" },
-        { status: 400 }
-      );
-    }
-    if (task.reviewClaimedById !== auth.userId) {
-      return NextResponse.json(
-        { error: "This task's review is claimed by another reviewer" },
-        { status: 409 }
-      );
-    }
-
     // Non-admin roles can only review tasks from channels they are assigned to
     if (auth.role === "mod" || auth.role === "supermod") {
       const [modAssignment] = await db
@@ -199,13 +185,11 @@ export async function PATCH(
           );
         }
 
-        // Move task to approved + release review claim
+        // Move task to approved
         await tx
           .update(tasks)
           .set({
             status: "approved",
-            reviewClaimedById: null,
-            reviewClaimedAt: null,
             updatedAt: new Date(),
           })
           .where(eq(tasks.id, taskId));

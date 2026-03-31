@@ -35,7 +35,6 @@ export async function GET(req: NextRequest) {
         channelName: channels.name,
         channelSlug: channels.slug,
         createdByUsername: users.username,
-        reviewClaimedById: tasks.reviewClaimedById,
         lockedById: tasks.lockedById,
         lockExpiresAt: tasks.lockExpiresAt,
       })
@@ -101,26 +100,10 @@ export async function GET(req: NextRequest) {
         );
     }
 
-    // Resolve reviewer names for task-level claims
-    const reviewerIds = [
-      ...new Set(allTasks.map((t) => t.reviewClaimedById).filter(Boolean)),
-    ] as string[];
-    let reviewerMap: Record<string, string> = {};
-    if (reviewerIds.length > 0) {
-      const reviewers = await db
-        .select({ id: users.id, username: users.username, displayName: users.displayName })
-        .from(users)
-        .where(inArray(users.id, reviewerIds));
-      for (const r of reviewers) {
-        reviewerMap[r.id] = r.displayName || r.username;
-      }
-    }
-
     return NextResponse.json({
       tasks: allTasks.map((t) => ({
         ...t,
         attemptCount: attemptCounts[t.id] || 0,
-        reviewClaimedBy: t.reviewClaimedById ? reviewerMap[t.reviewClaimedById] || null : null,
       })),
       ...(includeSubmittedAttempts ? { submittedAttempts } : {}),
       ...(modChannelIds.length > 0 ? { modChannelIds } : {}),

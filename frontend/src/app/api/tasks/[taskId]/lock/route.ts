@@ -51,8 +51,6 @@ export async function POST(
         status: "locked",
         lockedById: creatorId,
         lockExpiresAt,
-        reviewClaimedById: null,
-        reviewClaimedAt: null,
         updatedAt: new Date(),
       })
       .where(eq(tasks.id, taskId));
