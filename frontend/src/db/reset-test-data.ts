@@ -210,6 +210,13 @@ async function resetTestData() {
       .where(ne(users.email, ADMIN_EMAIL))
       .returning({ id: users.id });
     console.log(`    ${d17.length} rows deleted`);
+
+    console.log("  Clearing admin user's phone number...");
+    await db
+      .update(users)
+      .set({ phone: null })
+      .where(eq(users.email, ADMIN_EMAIL));
+    console.log("    done");
   }
 
   // 8. Re-seed the standard special & discussion channels if missing

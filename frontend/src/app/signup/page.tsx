@@ -100,9 +100,8 @@ export default function SignupPage() {
         if (!res.ok) {
           setError(data.error || t("signupFailed"));
         } else {
-          setSuccess(t("accountCreatedRedirect"));
-          await refreshUser();
-          setTimeout(() => router.push("/"), 1500);
+          setSuccess(t("accountCreatedPhone"));
+          setTimeout(() => router.push("/login"), 2000);
         }
       } catch {
         setLoading(false);

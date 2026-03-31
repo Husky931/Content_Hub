@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       .set({
         useCount: sql`${inviteCodes.useCount} + 1`,
         usedById: newUser.id,
-        status: sql`CASE WHEN ${inviteCodes.useCount} + 1 >= ${code.maxUses} THEN 'used' ELSE 'active' END`,
+        status: sql`(CASE WHEN ${inviteCodes.useCount} + 1 >= ${code.maxUses} THEN 'used' ELSE 'active' END)::invite_status`,
       })
       .where(
         and(

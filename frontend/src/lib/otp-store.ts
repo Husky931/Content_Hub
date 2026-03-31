@@ -14,8 +14,14 @@ const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_VERIFY_ATTEMPTS = 5;
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute between sends
 
-const store = new Map<string, OtpEntry>();
-const lastSent = new Map<string, number>(); // phone → timestamp
+// Attach to globalThis so the store survives Next.js HMR in development
+const globalForOtp = globalThis as unknown as {
+  __otpStore?: Map<string, OtpEntry>;
+  __otpLastSent?: Map<string, number>;
+};
+
+const store = (globalForOtp.__otpStore ??= new Map<string, OtpEntry>());
+const lastSent = (globalForOtp.__otpLastSent ??= new Map<string, number>());
 
 /** Generate a 6-digit OTP code */
 export function generateOtp(): string {

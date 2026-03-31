@@ -10,7 +10,7 @@ import { useTranslations, useLocale } from "next-intl";
 type LoginMethod = "email" | "phone";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const router = useRouter();
   const t = useTranslations("auth");
   const tn = useTranslations("nav");
@@ -90,6 +90,7 @@ export default function LoginPage() {
         if (!res.ok) {
           setError(data.error || t("loginFailed"));
         } else {
+          await refreshUser();
           router.push("/channels");
         }
       } catch {
