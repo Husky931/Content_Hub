@@ -359,7 +359,7 @@
     "createTemplate": "创建模板",
     "saveChanges": "保存更改",
     "resetToDefaults": "恢复默认",
-    "createTemplateBtn": "+ 创建模板",
+    "createTemplateBtn": "创建模板",
     "noTemplatesYet": "暂无模板。点击\"+ 创建模板\"开始。",
     "resetConfirm": "删除所有模板并重新生成默认模板？",
     "nameRequired": "名称为必填项",

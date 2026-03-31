@@ -1153,6 +1153,7 @@ interface TaskChannel {
 interface AdminTask {
   id: string;
   title: string;
+  titleCn: string | null;
   status: string;
   bountyUsd: string | null;
   bountyRmb: string | null;
@@ -1217,6 +1218,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 function AdminTasksSection() {
   const ta = useTranslations("admin");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const { user } = useAuth();
   const [channels, setChannels] = useState<TaskChannel[]>([]);
   const [tasks, setTasks] = useState<AdminTask[]>([]);
@@ -1972,14 +1974,14 @@ function AdminTasksSection() {
                     <div className="flex items-center gap-3 p-3" onClick={() => { if (!isEditing) applyTemplate(t); }}>
                       <span className="text-xl shrink-0">{style.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-discord-text text-sm">{t.name}</div>
+                        <div className="font-semibold text-discord-text text-sm">{localized(locale, t.name, t.nameCn)}</div>
                         <div className="text-xs text-discord-text-muted truncate">
                           {[
                             t.deliverableSlots?.length ? `${t.deliverableSlots.length} slot${t.deliverableSlots.length > 1 ? "s" : ""}` : null,
                             t.checklist?.length ? `${t.checklist.length} check${t.checklist.length > 1 ? "s" : ""}` : null,
                             t.bountyUsd ? `$${t.bountyUsd}` : null,
                             t.attachments?.length ? `${t.attachments.length} file${t.attachments.length > 1 ? "s" : ""}` : null,
-                          ].filter(Boolean).join(", ") || t.description?.slice(0, 60) || ta("noDescription")}
+                          ].filter(Boolean).join(", ") || localized(locale, t.description || "", t.descriptionCn)?.slice(0, 60) || ta("noDescription")}
                         </div>
                       </div>
                       {/* Action tags on the right */}
@@ -2329,7 +2331,7 @@ function AdminTasksSection() {
                 {task.status}
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-discord-text truncate">{task.title}</div>
+                <div className="text-sm font-medium text-discord-text truncate">{localized(locale, task.title, task.titleCn)}</div>
                 <div className="text-xs text-discord-text-muted">#{task.channelName} — by {task.createdByUsername} — {task.attemptCount} attempts — created: {(() => { const d = new Date(task.createdAt); return `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; })()}</div>
               </div>
               <span className="text-sm font-bold text-green-400 shrink-0">${task.bountyUsd || "0"}</span>

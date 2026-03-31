@@ -359,7 +359,7 @@
     "createTemplate": "Create Template",
     "saveChanges": "Save Changes",
     "resetToDefaults": "Reset to Defaults",
-    "createTemplateBtn": "+ Create Template",
+    "createTemplateBtn": "Create Template",
     "noTemplatesYet": "No templates yet. Click \"+ Create Template\" to get started.",
     "resetConfirm": "Delete ALL templates and re-seed defaults?",
     "nameRequired": "Name is required",
