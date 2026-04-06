@@ -25,6 +25,7 @@ type Section =
   | "admin-invites"
   | "admin-tags"
   | "admin-tasks"
+  | "admin-templates"
   | "admin-channels"
   | "admin-audit"
   | "admin-training"
@@ -2416,9 +2417,9 @@ interface ChannelMod {
   role: string;
 }
 
-// ─── Admin: Task Templates — removed, merged into AdminTasksSection ──────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function __REMOVED_AdminTemplatesSection() {
+// ─── Admin: Task Templates (standalone view) ─────────────────────────────────
+
+function AdminTemplatesSection() {
   const ta = useTranslations("admin");
   const tc = useTranslations("common");
   const { navigateTo } = useSettingsModal();
@@ -3660,6 +3661,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
     { id: "admin-invites", label: ta("inviteCodes") },
     { id: "admin-tags", label: ta("tagsLabel") },
     { id: "admin-tasks", label: ta("tasks") },
+    { id: "admin-templates", label: ta("taskTemplates") },
     { id: "admin-channels", label: ta("channels") },
     { id: "admin-training", label: ta("training") },
     { id: "admin-upload-reviews", label: ta("uploadReviews") },
@@ -3707,7 +3709,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
                 {ta("adminSettings")}
               </div>
               {user.role === "admin" && adminItems.map((item) => <NavBtn key={item.id} {...item} />)}
-              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: ta("tasks") }, { id: "admin-upload-reviews" as Section, label: ta("uploadReviews") }].map((item) => <NavBtn key={item.id} {...item} />)}
+              {user.role === "mod" && [{ id: "admin-tasks" as Section, label: ta("tasks") }, { id: "admin-templates" as Section, label: ta("taskTemplates") }, { id: "admin-upload-reviews" as Section, label: ta("uploadReviews") }].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "supermod" && [...adminItems, ...supermodItems].map((item) => <NavBtn key={item.id} {...item} />)}
               {user.role === "admin" && supermodItems.map((item) => <NavBtn key={item.id} {...item} />)}
             </div>
@@ -3737,6 +3739,7 @@ export function UserSettingsModal({ isOpen, onClose, initialSection = "my-accoun
           {section === "admin-invites" && <AdminInvitesSection />}
           {section === "admin-tags" && <AdminTagsSection />}
           {section === "admin-tasks" && <AdminTasksSection key={navTick} />}
+          {section === "admin-templates" && <AdminTemplatesSection key={navTick} />}
           {section === "admin-channels" && <AdminChannelsSection />}
           {section === "admin-audit" && <AdminAuditSection />}
           {section === "admin-training" && !editingLessonId && (
