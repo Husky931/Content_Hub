@@ -136,7 +136,7 @@ function TaskListContent() {
     setArchivingId(null);
   };
 
-  useEffect(() => {
+  const fetchTasks = () => {
     const params = new URLSearchParams();
     if (channelFilter) params.set("channel", channelFilter);
     fetch(`/api/tasks?${params}`)
@@ -144,6 +144,17 @@ function TaskListContent() {
       .then((data) => setTasks(data.tasks || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, [channelFilter]);
+
+  // Listen for same-tab task mutations (e.g. edit from settings modal)
+  useEffect(() => {
+    const handler = () => fetchTasks();
+    window.addEventListener("tasks-updated", handler);
+    return () => window.removeEventListener("tasks-updated", handler);
   }, [channelFilter]);
 
   // Filter and sort
@@ -480,6 +491,18 @@ function TaskListContent() {
                           className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                         >
                           Review
+                        </button>
+                      )}
+                      {isMod && task.status === "active" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sessionStorage.setItem("editDraftTask", task.id);
+                            openSettings("admin-tasks");
+                          }}
+                          className="text-xs px-3 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded font-semibold transition cursor-pointer flex items-center gap-1"
+                        >
+                          {t("edit")}
                         </button>
                       )}
                       {(user?.username === task.createdByUsername || user?.role === "admin") && task.status === "active" && (

@@ -1243,6 +1243,7 @@ function AdminTasksSection() {
   const [creating, setCreating] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskStatus, setEditingTaskStatus] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
   // Checklist state (review — mod-facing)
   const [checklistItems, setChecklistItems] = useState<string[]>([]);
@@ -1341,7 +1342,7 @@ function AdminTasksSection() {
     setBountyUsd(""); setBountyRmb(""); setBonusBountyUsd(""); setBonusBountyRmb("");
     setMaxAttempts("5"); setDeadline(""); setPublishNow(false); setFormError("");
     setChecklistItems([]); setNewChecklistItem(""); setSelfChecklistItems([]); setNewSelfChecklistItem("");
-    setTaskAttachments([]); setDeliverableSlots([]); setEditingTaskId(null);
+    setTaskAttachments([]); setDeliverableSlots([]); setEditingTaskId(null); setEditingTaskStatus(null);
     setPreviewDescEn(false); setPreviewDescCn(false);
     setShowSaveTemplate(false); setTemplateName(""); setTemplateNameCn("");
   };
@@ -1353,6 +1354,7 @@ function AdminTasksSection() {
       if (!res.ok) return;
       const { task } = await res.json();
       setEditingTaskId(taskId);
+      setEditingTaskStatus(task.status || "draft");
       setChannelId(task.channelId || "");
       setTitle(task.title || "");
       setTitleCn(task.titleCn || "");
@@ -1605,6 +1607,7 @@ function AdminTasksSection() {
       resetTaskForm();
       setCreateMode("closed");
       fetchData();
+      window.dispatchEvent(new Event("tasks-updated"));
     } else {
       const data = await res.json();
       setFormError(data.error || ta("failedCreateTask"));
@@ -1620,6 +1623,7 @@ function AdminTasksSection() {
       body: JSON.stringify({ status: newStatus }),
     });
     fetchData();
+    window.dispatchEvent(new Event("tasks-updated"));
     setActionLoadingId(null);
   };
 
@@ -1661,6 +1665,7 @@ function AdminTasksSection() {
       resetTaskForm();
       setCreateMode("closed");
       fetchData();
+      window.dispatchEvent(new Event("tasks-updated"));
     } else {
       const data = await res.json();
       setFormError(data.error || ta("failedUpdateTask"));
@@ -2247,20 +2252,34 @@ function AdminTasksSection() {
             <p className="text-xs text-red-400 mt-2">⚠ {ta("cannotPublish")}</p>
           )}
           <div className="mt-4 flex gap-3">
-            <button
-              onClick={() => { setPublishNow(false); (editingTaskId ? handleUpdate : handleCreate)(false); }}
-              disabled={creating || (!!deadline && new Date(deadline) < new Date())}
-              className="flex-1 py-2.5 bg-discord-bg-hover hover:bg-discord-border text-discord-text-secondary rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1.5"
-            >
-              <ButtonSpinner loading={creating && !publishNow}>💾 {ta("saveAsDraft")}</ButtonSpinner>
-            </button>
-            <button
-              onClick={() => { setPublishNow(true); (editingTaskId ? handleUpdate : handleCreate)(true); }}
-              disabled={creating || deliverableSlots.length === 0 || (!!deadline && new Date(deadline) < new Date())}
-              className="flex-1 py-2.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
-            >
-              <ButtonSpinner loading={creating && publishNow}>✈ {ta("publish")}</ButtonSpinner>
-            </button>
+            {editingTaskId && editingTaskStatus === "active" ? (
+              /* Editing an already-active task: single "Save Changes" button */
+              <button
+                onClick={() => { setPublishNow(false); handleUpdate(false); }}
+                disabled={creating || (!!deadline && new Date(deadline) < new Date())}
+                className="flex-1 py-2.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <ButtonSpinner loading={creating}>{ta("saveChanges")}</ButtonSpinner>
+              </button>
+            ) : (
+              /* Creating or editing a draft: Save as Draft + Publish */
+              <>
+                <button
+                  onClick={() => { setPublishNow(false); (editingTaskId ? handleUpdate : handleCreate)(false); }}
+                  disabled={creating || (!!deadline && new Date(deadline) < new Date())}
+                  className="flex-1 py-2.5 bg-discord-bg-hover hover:bg-discord-border text-discord-text-secondary rounded-lg text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  <ButtonSpinner loading={creating && !publishNow}>{ta("saveAsDraft")}</ButtonSpinner>
+                </button>
+                <button
+                  onClick={() => { setPublishNow(true); (editingTaskId ? handleUpdate : handleCreate)(true); }}
+                  disabled={creating || deliverableSlots.length === 0 || (!!deadline && new Date(deadline) < new Date())}
+                  className="flex-1 py-2.5 bg-discord-accent hover:bg-discord-accent/80 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <ButtonSpinner loading={creating && publishNow}>{ta("publish")}</ButtonSpinner>
+                </button>
+              </>
+            )}
           </div>
           <div className="mt-2 flex justify-end">
             <button
@@ -2350,7 +2369,10 @@ function AdminTasksSection() {
                   </>
                 )}
                 {task.status === "active" && (
-                  <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>{ta("archive")}</ButtonSpinner></button>
+                  <>
+                    <button onClick={() => handleEdit(task.id)} disabled={editLoading === task.id} className="text-xs px-2 py-1 bg-discord-accent hover:bg-discord-accent/80 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={editLoading === task.id}>{ta("edit")}</ButtonSpinner></button>
+                    <button onClick={() => handleStatusChange(task.id, "archived")} disabled={actionLoadingId === task.id} className="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded transition disabled:opacity-50 flex items-center gap-1"><ButtonSpinner loading={actionLoadingId === task.id}>{ta("archive")}</ButtonSpinner></button>
+                  </>
                 )}
               </div>
             </div>

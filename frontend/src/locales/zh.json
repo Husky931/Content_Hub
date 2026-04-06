@@ -161,6 +161,7 @@
     "daysLeftPlural": "剩余 {days} 天",
     "noSubmissions": "你还没有提交任何任务",
     "noTasks": "没有符合条件的任务",
+    "edit": "编辑",
     "publish": "发布",
     "archive": "归档",
     "underReview": "审核中"
@@ -320,6 +321,7 @@
     "deadlinePastError": "截止日期不能是过去的时间",
     "cannotPublish": "无法发布：请至少添加一个交付物插槽。",
     "saveAsDraft": "保存为草稿",
+    "saveChanges": "保存更改",
     "publish": "发布",
     "archive": "归档",
     "saveAsTemplate": "保存为模板",

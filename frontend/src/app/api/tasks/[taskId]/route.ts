@@ -245,16 +245,17 @@ export async function PATCH(
       .where(eq(tasks.id, taskId))
       .returning();
 
-    // Real-time: broadcast task status change (non-draft→active transitions)
+    // Real-time: broadcast task updates
     // Note: draft→active broadcast is handled above in the status transition block
-    if (body.status && !(existingTask.status === "draft" && body.status === "active")) {
+    const isDraftToActive = existingTask.status === "draft" && body.status === "active";
+    if (!isDraftToActive && existingTask.status !== "draft") {
       const [ch] = await db
         .select({ slug: channels.slug })
         .from(channels)
         .where(eq(channels.id, existingTask.channelId))
         .limit(1);
       if (ch?.slug) {
-        await publishTaskUpdate(ch.slug, { id: taskId, status: body.status, title: updated.title });
+        await publishTaskUpdate(ch.slug, { id: taskId, status: updated.status, title: updated.title });
       }
     }
 

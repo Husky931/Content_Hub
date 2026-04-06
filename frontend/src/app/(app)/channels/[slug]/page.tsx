@@ -319,6 +319,13 @@ function ChannelPageContent() {
     fetchAppeals();
   }, [slug, fetchAppeals]);
 
+  // Listen for same-tab task mutations (e.g. edit from settings modal)
+  useEffect(() => {
+    const handler = () => fetchTasksRef.current();
+    window.addEventListener("tasks-updated", handler);
+    return () => window.removeEventListener("tasks-updated", handler);
+  }, []);
+
   // Real-time: subscribe to channel messages via WebSocket
   useEffect(() => {
     if (!slug) return;

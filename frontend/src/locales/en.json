@@ -161,6 +161,7 @@
     "daysLeftPlural": "{days} days left",
     "noSubmissions": "You haven't submitted any tasks yet",
     "noTasks": "No tasks match your filters",
+    "edit": "Edit",
     "publish": "Publish",
     "archive": "Archive",
     "underReview": "under review"
@@ -320,6 +321,7 @@
     "deadlinePastError": "Deadline cannot be in the past",
     "cannotPublish": "Cannot publish: add at least one deliverable slot.",
     "saveAsDraft": "Save as Draft",
+    "saveChanges": "Save Changes",
     "publish": "Publish",
     "archive": "Archive",
     "saveAsTemplate": "Save as Template",
